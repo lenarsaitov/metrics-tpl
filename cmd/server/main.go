@@ -18,7 +18,7 @@ func main() {
 	serverController := server.NewController(implementations.NewMemStorageModel())
 
 	e.Add(http.MethodGet, "/", serverController.GetMetrics)
-	e.Add(http.MethodGet, "/update/:metricType/:metricName", serverController.GetMetric)
+	e.Add(http.MethodGet, "/value/:metricType/:metricName", serverController.GetMetric)
 	e.Add(http.MethodPost, "/update/:metricType/:metricName/:metricValue", serverController.Update)
 
 	if err := http.ListenAndServe("localhost:8080", e); err != nil {

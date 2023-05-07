@@ -111,7 +111,7 @@ func TestGetMetric(t *testing.T) {
 
 			serverController := NewController(memstorageModel)
 			w := httptest.NewRecorder()
-			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName", nil)
+			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
 
 			ctx := e.NewContext(request, w)
 			ctx.SetParamNames("metricType", "metricName")
