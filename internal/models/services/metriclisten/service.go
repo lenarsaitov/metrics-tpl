@@ -1,18 +1,13 @@
 package metriclisten
 
-type Metric struct {
+type AgentMetric struct {
 	MetricType  string
 	MetricName  string
 	MetricValue float64
 }
 
-type Metrics []Metric
-
-const (
-	GaugeMetricType   = "gauge"
-	CounterMetricType = "counter"
-)
+type AgentMetrics []AgentMetric
 
 type Service interface {
-	GetMetrics() Metrics
+	GetAgentMetrics() AgentMetrics
 }

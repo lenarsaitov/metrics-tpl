@@ -2,11 +2,12 @@ package responder
 
 const (
 	defaultInternalErrorResponseMessage = "something going wrong"
-
-	requestTemplate = `
-{
-	"response": {
-		"text": "%s"
-	}
-}`
 )
+
+type textResponse struct {
+	Text string `json:"text,omitempty"`
+}
+
+type serverResponse struct {
+	Response textResponse `json:"response,omitempty"`
+}

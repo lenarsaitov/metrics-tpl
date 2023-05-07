@@ -34,11 +34,6 @@ const (
 	RandomValueMetric = "RandomValue"
 )
 
-const (
-	GaugeMetricType   = "gauge"
-	CounterMetricType = "counter"
-)
-
 type ServerResponse struct {
 	Response struct {
 		Text string `json:"text,omitempty"`

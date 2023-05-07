@@ -3,6 +3,7 @@ package implementations
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"io"
 	"net/http"
 
@@ -20,11 +21,11 @@ func NewMetricSenderModel() *MetricSenderModel {
 }
 
 func (m *MetricSenderModel) SendReplaceGauge(name string, value float64) error {
-	return m.send(fmt.Sprintf("/update/%s/%s/%f", GaugeMetricType, name, value))
+	return m.send(fmt.Sprintf("/update/%s/%s/%f", services.GaugeMetricType, name, value))
 }
 
 func (m *MetricSenderModel) SendAddCounter(name string, value int64) error {
-	return m.send(fmt.Sprintf("/update/%s/%s/%d", CounterMetricType, name, value))
+	return m.send(fmt.Sprintf("/update/%s/%s/%d", services.CounterMetricType, name, value))
 }
 
 func (m *MetricSenderModel) send(urlPath string) error {

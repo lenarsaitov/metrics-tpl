@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/echo"
 	"net/http"
 
 	"github.com/lenarsaitov/metrics-tpl/internal/controllers/server"
@@ -13,12 +14,14 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics collection and alerting service web server..")
 
+	e := echo.New()
 	serverController := server.NewController(implementations.NewMemStorageModel())
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/update/", serverController.Update)
+	e.Add(http.MethodGet, "/", serverController.GetMetrics)
+	e.Add(http.MethodGet, "/update/:metricType/:metricName", serverController.GetMetric)
+	e.Add(http.MethodPost, "/update/:metricType/:metricName/:metricValue", serverController.Update)
 
-	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
+	if err := http.ListenAndServe("localhost:8080", e); err != nil {
 		log.Fatal().Err(err).Msg("failed to run web server")
 	}
 }

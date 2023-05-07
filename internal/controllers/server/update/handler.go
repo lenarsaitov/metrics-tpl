@@ -1,6 +1,7 @@
 package update
 
 import (
+	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"strconv"
 
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/memstorage"
@@ -18,16 +19,14 @@ func NewHandler(memStorageService memstorage.Service) *Handler {
 	}
 }
 
-func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *Input) {
-	log.Info().Msg("handle")
+func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *Input) error {
+	log.Info().Msg("handle update request")
 
 	switch input.MetricType {
-	case memstorage.GaugeMetricType:
+	case services.GaugeMetricType:
 		gaugeValue, err := strconv.ParseFloat(input.MetricValue, 64)
 		if err != nil {
-			rsp.BadRequest("invalid value of gauge metrics, need float64")
-
-			return
+			return rsp.BadRequest("invalid value of gauge metrics, need float64")
 		}
 
 		h.memStorageService.ReplaceGauge(input.MetricName, gaugeValue)
@@ -37,13 +36,11 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 			Str("metric_value", input.MetricValue).
 			Msg("gauge was replaced successfully")
 
-		rsp.OK("gauge was replaced successfully")
-	case memstorage.CounterMetricType:
+		return rsp.OK("gauge was replaced successfully")
+	case services.CounterMetricType:
 		countValue, err := strconv.Atoi(input.MetricValue)
 		if err != nil {
-			rsp.BadRequest("invalid value of counter metrics, need int64")
-
-			return
+			return rsp.BadRequest("invalid value of counter metrics, need int64")
 		}
 
 		h.memStorageService.AddCounter(input.MetricName, int64(countValue))
@@ -53,10 +50,8 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 			Str("metric_value", input.MetricValue).
 			Msg("counter was added successfully")
 
-		rsp.OK("counter was added successfully")
+		return rsp.OK("counter was added successfully")
 	default:
-		rsp.BadRequest("unavailable metric type, use counter or gauge")
+		return rsp.BadRequest("unavailable metric type, use counter or gauge")
 	}
-
-	log.Info().Msg("handled")
 }

@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/metriclisten"
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/metricsender"
 	"github.com/rs/zerolog"
@@ -11,7 +12,7 @@ import (
 type Handler struct {
 	metricListenService metriclisten.Service
 	metricSenderService metricsender.Service
-	listenedMetrics     metriclisten.Metrics
+	listenedMetrics     metriclisten.AgentMetrics
 	pollCount           int64
 	pollInterval        int
 	reportInterval      int
@@ -26,7 +27,7 @@ func NewHandler(
 	return &Handler{
 		metricListenService: metricListenService,
 		metricSenderService: metricSenderService,
-		listenedMetrics:     make(metriclisten.Metrics, 0),
+		listenedMetrics:     make(metriclisten.AgentMetrics, 0),
 		pollInterval:        pollInterval,
 		reportInterval:      reportInterval,
 	}
@@ -44,14 +45,14 @@ func (h *Handler) Handle(log *zerolog.Logger) {
 	for {
 		for _, metric := range h.listenedMetrics {
 			switch metric.MetricType {
-			case metriclisten.CounterMetricType:
+			case services.CounterMetricType:
 				err := h.metricSenderService.SendAddCounter(metric.MetricName, int64(metric.MetricValue))
 				if err != nil {
 					log.Error().Err(err).Msg("failed to send counter metric")
 
 					return
 				}
-			case metriclisten.GaugeMetricType:
+			case services.GaugeMetricType:
 				err := h.metricSenderService.SendReplaceGauge(metric.MetricName, metric.MetricValue)
 				if err != nil {
 					log.Error().Err(err).Msg("failed to send gauge metric")
@@ -70,7 +71,7 @@ func (h *Handler) Handle(log *zerolog.Logger) {
 
 func (h *Handler) getMetrics(mu *sync.Mutex) {
 	for {
-		metrics := h.metricListenService.GetMetrics()
+		metrics := h.metricListenService.GetAgentMetrics()
 
 		mu.Lock()
 		h.listenedMetrics = metrics
