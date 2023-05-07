@@ -1,20 +1,29 @@
-package responder
+package controllers
 
 import (
 	"github.com/labstack/echo"
 	"net/http"
-
-	"github.com/rs/zerolog"
 )
 
+const (
+	defaultInternalErrorResponseMessage = "something going wrong"
+	defaultBadRequestMessage            = "bad request"
+)
+
+type textResponse struct {
+	Text string `json:"text,omitempty"`
+}
+
+type serverResponse struct {
+	Response textResponse `json:"response,omitempty"`
+}
+
 type Responder struct {
-	log *zerolog.Logger
 	ctx echo.Context
 }
 
-func NewResponder(log *zerolog.Logger, ctx echo.Context) *Responder {
+func NewResponder(ctx echo.Context) *Responder {
 	return &Responder{
-		log: log,
 		ctx: ctx,
 	}
 }

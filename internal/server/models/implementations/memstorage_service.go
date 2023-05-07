@@ -1,16 +1,21 @@
 package implementations
 
 import (
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services/memstorage"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 )
+
+type ServerResponse struct {
+	Response struct {
+		Text string `json:"text,omitempty"`
+	} `json:"response,omitempty"`
+}
 
 type MemStorageModel struct {
 	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
-var _ memstorage.Service = &MemStorageModel{}
+var _ models.MemStorage = &MemStorageModel{}
 
 func NewMemStorageModel() *MemStorageModel {
 	return &MemStorageModel{
@@ -19,20 +24,20 @@ func NewMemStorageModel() *MemStorageModel {
 	}
 }
 
-func (m *MemStorageModel) GetAllMetrics() memstorage.ServerMetrics {
-	metrics := memstorage.ServerMetrics{}
+func (m *MemStorageModel) GetAllMetrics() models.Metrics {
+	metrics := models.Metrics{}
 
 	for name, value := range m.gaugeMetrics {
-		metrics = append(metrics, memstorage.ServerMetric{
-			MetricType:  services.GaugeMetricType,
+		metrics = append(metrics, models.Metric{
+			MetricType:  models.GaugeMetricType,
 			MetricName:  name,
 			MetricValue: value,
 		})
 	}
 
 	for name, value := range m.counterMetrics {
-		metrics = append(metrics, memstorage.ServerMetric{
-			MetricType:  services.CounterMetricType,
+		metrics = append(metrics, models.Metric{
+			MetricType:  models.CounterMetricType,
 			MetricName:  name,
 			MetricValue: float64(value),
 		})

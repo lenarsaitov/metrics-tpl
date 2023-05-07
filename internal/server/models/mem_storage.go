@@ -1,15 +1,20 @@
-package memstorage
+package models
 
-type ServerMetric struct {
+const (
+	CounterMetricType = "counter"
+	GaugeMetricType   = "gauge"
+)
+
+type Metric struct {
 	MetricType  string
 	MetricName  string
 	MetricValue float64
 }
 
-type ServerMetrics []ServerMetric
+type Metrics []Metric
 
-type Service interface {
-	GetAllMetrics() ServerMetrics
+type MemStorage interface {
+	GetAllMetrics() Metrics
 
 	GetGaugeMetric(name string) *float64
 	GetCounterMetric(name string) *int64

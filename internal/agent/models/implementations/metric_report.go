@@ -3,42 +3,40 @@ package implementations
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
+	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services/metricsender"
 )
 
-type MetricSenderModel struct {
+type MetricReportModel struct {
 	pollCount           int64
 	remoteServerAddress string
 }
 
-var _ metricsender.Service = &MetricSenderModel{}
+var _ models.MetricReport = &MetricReportModel{}
 
-func NewMetricSenderModel(
+func NewMetricReportModel(
 	remoteServerAddress string,
-) *MetricSenderModel {
+) *MetricReportModel {
 	if !strings.Contains(remoteServerAddress, `://`) {
 		remoteServerAddress = "http://" + remoteServerAddress
 	}
 
-	return &MetricSenderModel{
+	return &MetricReportModel{
 		remoteServerAddress: remoteServerAddress,
 	}
 }
 
-func (m *MetricSenderModel) SendReplaceGauge(name string, value float64) error {
-	return m.send(fmt.Sprintf("/update/%s/%s/%f", services.GaugeMetricType, name, value))
+func (m *MetricReportModel) ReportGaugeMetric(name string, value float64) error {
+	return m.send(fmt.Sprintf("/update/%s/%s/%f", models.GaugeMetricType, name, value))
 }
 
-func (m *MetricSenderModel) SendAddCounter(name string, value int64) error {
-	return m.send(fmt.Sprintf("/update/%s/%s/%d", services.CounterMetricType, name, value))
+func (m *MetricReportModel) ReportCounterMetric(name string, value int64) error {
+	return m.send(fmt.Sprintf("/update/%s/%s/%d", models.CounterMetricType, name, value))
 }
 
-func (m *MetricSenderModel) send(urlPath string) error {
+func (m *MetricReportModel) send(urlPath string) error {
 	request, err := http.NewRequest(http.MethodPost, m.remoteServerAddress+urlPath, nil)
 	if err != nil {
 		return err

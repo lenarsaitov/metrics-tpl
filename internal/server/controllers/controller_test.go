@@ -1,9 +1,10 @@
-package server
+package controllers
 
 import (
 	"github.com/labstack/echo"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/implementations"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/models/implementations"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/usecase"
 	"github.com/stretchr/testify/require"
 	"io"
 	"math/rand"
@@ -32,8 +33,18 @@ func TestUpdate(t *testing.T) {
 				metricName  string
 				metricValue string
 				method      string
-			}{metricType: services.GaugeMetricType, metricName: "Alloc", metricValue: "123", method: http.MethodPost},
+			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: "123", method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
+		},
+		{
+			name: "test negative case, invalid metric value",
+			request: struct {
+				metricType  string
+				metricName  string
+				metricValue string
+				method      string
+			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: "123ssss", method: http.MethodPost},
+			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
 		},
 		{
 			name: "test negative case, incorrect metric type",
@@ -51,7 +62,9 @@ func TestUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			serverController := NewController(implementations.NewMemStorageModel())
+			useMetrics := usecase.NewMetricsUseCase(implementations.NewMemStorageModel())
+			serverController := New(useMetrics)
+
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName/:metricValue", nil)
 
@@ -72,7 +85,11 @@ func TestUpdate(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	var tests = []struct {
-		name    string
+		name           string
+		preparedMetric *struct {
+			metricType string
+			metricName string
+		}
 		request struct {
 			metricType string
 			metricName string
@@ -84,21 +101,38 @@ func TestGetMetric(t *testing.T) {
 	}{
 		{
 			name: "test success case, gauge",
+			preparedMetric: &struct {
+				metricType string
+				metricName string
+			}{metricType: models.GaugeMetricType, metricName: "Alloc"},
 			request: struct {
 				metricType string
 				metricName string
 				method     string
-			}{metricType: services.GaugeMetricType, metricName: "Alloc", method: http.MethodGet},
+			}{metricType: models.GaugeMetricType, metricName: "Alloc", method: http.MethodGet},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
 		},
 		{
 			name: "test success case, counter",
+			preparedMetric: &struct {
+				metricType string
+				metricName string
+			}{metricType: models.CounterMetricType, metricName: "Counter"},
 			request: struct {
 				metricType string
 				metricName string
 				method     string
-			}{metricType: services.CounterMetricType, metricName: "Counter", method: http.MethodGet},
+			}{metricType: models.CounterMetricType, metricName: "Counter", method: http.MethodGet},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
+		},
+		{
+			name: "test negative case, not found",
+			request: struct {
+				metricType string
+				metricName string
+				method     string
+			}{metricType: models.CounterMetricType, metricName: "Alloc", method: http.MethodGet},
+			want: struct{ statusCode int }{statusCode: http.StatusNotFound},
 		},
 		{
 			name: "test negative case, incorrect metric type",
@@ -115,11 +149,20 @@ func TestGetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memstorageModel := implementations.NewMemStorageModel()
-			memstorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
-			memstorageModel.AddCounter(test.request.metricName, rand.Int63())
+			memStorageModel := implementations.NewMemStorageModel()
 
-			serverController := NewController(memstorageModel)
+			if test.preparedMetric != nil {
+				switch test.preparedMetric.metricType {
+				case models.GaugeMetricType:
+					memStorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+				case models.CounterMetricType:
+					memStorageModel.AddCounter(test.request.metricName, rand.Int63())
+				}
+			}
+
+			useMetrics := usecase.NewMetricsUseCase(memStorageModel)
+
+			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
 
@@ -160,10 +203,12 @@ func TestGetAllMetrics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memstorageModel := implementations.NewMemStorageModel()
-			memstorageModel.ReplaceGauge(services.GaugeMetricType, rand.Float64())
+			memStorageModel := implementations.NewMemStorageModel()
+			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
 
-			serverController := NewController(memstorageModel)
+			useMetrics := usecase.NewMetricsUseCase(implementations.NewMemStorageModel())
+
+			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 

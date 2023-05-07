@@ -2,8 +2,9 @@ package main
 
 import (
 	"github.com/labstack/echo"
-	"github.com/lenarsaitov/metrics-tpl/internal/controllers/server"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/implementations"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/controllers"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/models/implementations"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/usecase"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"net/http"
@@ -16,7 +17,8 @@ func main() {
 	parseConfiguration()
 
 	e := echo.New()
-	serverController := server.NewController(implementations.NewMemStorageModel())
+	useMetrics := usecase.NewMetricsUseCase(implementations.NewMemStorageModel())
+	serverController := controllers.New(useMetrics)
 
 	e.Add(http.MethodGet, "/", serverController.GetMetrics)
 	e.Add(http.MethodGet, "/value/:metricType/:metricName", serverController.GetMetric)
