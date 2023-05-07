@@ -27,7 +27,7 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 			return rsp.NotFound("not found value of this gauge metric")
 		}
 
-		return rsp.OKWithBody(value)
+		return rsp.OKWithBody(*value)
 	case services.CounterMetricType:
 		values := h.memStorageService.GetCounterMetric(input.MetricName)
 		if values == nil {
