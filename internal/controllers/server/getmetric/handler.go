@@ -1,7 +1,6 @@
 package getmetric
 
 import (
-	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/memstorage"
 	"github.com/lenarsaitov/metrics-tpl/internal/responder"
@@ -28,14 +27,14 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 			return rsp.NotFound("not found value of this gauge metric")
 		}
 
-		return rsp.OK(fmt.Sprintf("%d", value))
+		return rsp.OKWithBody(value)
 	case services.CounterMetricType:
 		values := h.memStorageService.GetCounterMetric(input.MetricName)
 		if values == nil {
 			return rsp.NotFound("not found values of this counter metric")
 		}
 
-		return rsp.OK(fmt.Sprintf("%d", values))
+		return rsp.OKWithBody((*values)[len(*values)-1])
 	default:
 		return rsp.BadRequest("unavailable metric type, use counter or gauge")
 	}

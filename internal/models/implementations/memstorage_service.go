@@ -50,7 +50,7 @@ func (m *MemStorageModel) GetGaugeMetric(name string) *float64 {
 }
 
 func (m *MemStorageModel) GetCounterMetric(name string) *[]int64 {
-	if values, ok := m.counterMetrics[name]; ok {
+	if values, ok := m.counterMetrics[name]; ok && len(values) != 0 {
 		return &values
 	}
 

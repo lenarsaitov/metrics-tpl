@@ -83,12 +83,21 @@ func TestGetMetric(t *testing.T) {
 		}
 	}{
 		{
-			name: "test success case",
+			name: "test success case, gauge",
 			request: struct {
 				metricType string
 				metricName string
 				method     string
 			}{metricType: services.GaugeMetricType, metricName: "Alloc", method: http.MethodGet},
+			want: struct{ statusCode int }{statusCode: http.StatusOK},
+		},
+		{
+			name: "test success case, counter",
+			request: struct {
+				metricType string
+				metricName string
+				method     string
+			}{metricType: services.CounterMetricType, metricName: "Counter", method: http.MethodGet},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
 		},
 		{
@@ -108,6 +117,7 @@ func TestGetMetric(t *testing.T) {
 
 			memstorageModel := implementations.NewMemStorageModel()
 			memstorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+			memstorageModel.AddCounter(test.request.metricName, rand.Int63())
 
 			serverController := NewController(memstorageModel)
 			w := httptest.NewRecorder()
@@ -122,7 +132,10 @@ func TestGetMetric(t *testing.T) {
 
 			response := w.Result()
 			defer response.Body.Close()
+			res, err := io.ReadAll(response.Body)
+			require.Nil(t, err)
 
+			require.NotEmpty(t, res)
 			require.Equal(t, response.StatusCode, test.want.statusCode, "incorrect status")
 		})
 	}
