@@ -2,7 +2,6 @@ package implementations
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,7 +55,7 @@ func (m *MetricSenderModel) send(urlPath string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("unsuccess response status: %d, text: %s", resp.StatusCode, response.Response.Text))
+		return fmt.Errorf("unsuccess response status: %d, text: %s", resp.StatusCode, response.Response.Text)
 	}
 
 	return nil
