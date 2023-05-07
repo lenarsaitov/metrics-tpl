@@ -5,7 +5,8 @@ const (
 
 	requestTemplate = `
 {
-"response": {
-"text": "%s"
-},`
+	"response": {
+		"text": "%s"
+	}
+}`
 )

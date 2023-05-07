@@ -5,7 +5,6 @@ import (
 
 	"github.com/lenarsaitov/metrics-tpl/internal/controllers/server"
 	"github.com/lenarsaitov/metrics-tpl/internal/models/implementations"
-	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -14,8 +13,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics collection and alerting service web server..")
 
-	srvs := services.New(implementations.NewMemStorageModel())
-	serverController := server.NewController(srvs.MemStorageService)
+	serverController := server.NewController(implementations.NewMemStorageModel())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/update/", serverController.Update)

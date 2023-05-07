@@ -32,7 +32,7 @@ func (r *Responder) NotFound(responseMessage string) {
 }
 
 func (r *Responder) InternalError() {
-	r.send(http.StatusInternalServerError, requestTemplate)
+	r.send(http.StatusInternalServerError, defaultInternalErrorResponseMessage)
 }
 
 func (r *Responder) send(status int, responseMessage string) {
