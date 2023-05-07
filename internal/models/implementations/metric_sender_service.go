@@ -28,7 +28,7 @@ func (m *MetricSenderModel) SendAddCounter(name string, value int64) error {
 }
 
 func (m *MetricSenderModel) send(urlPath string) error {
-	request, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080"+urlPath, nil)
+	request, err := http.NewRequest(http.MethodPost, "http://localhost:8080"+urlPath, nil)
 	if err != nil {
 		return err
 	}
