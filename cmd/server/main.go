@@ -13,7 +13,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics collection and alerting service web server..")
 
-	parseFlag()
+	parseConfiguration()
 
 	e := echo.New()
 	serverController := server.NewController(implementations.NewMemStorageModel())

@@ -11,7 +11,9 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics agent for collecting runtime metrics and then sending them to the server via HTTP protocol..")
 
-	parseFlag()
+	if err := parseConfiguration(); err != nil {
+		log.Fatal().Err(err).Msg("failed to parse configuration, flag or environment")
+	}
 
 	log.Info().
 		Str("server_address_remote", flagRemoteAddr).
