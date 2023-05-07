@@ -22,8 +22,14 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	paths := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
-	if len(paths) != 4 || paths[0] != "update" || (paths[1] != memstorage.GaugeMetricType && paths[1] != memstorage.CounterMetricType) {
+	if len(paths) < 2 || paths[0] != "update" || (paths[1] != memstorage.GaugeMetricType && paths[1] != memstorage.CounterMetricType) {
 		rsp.BadRequest("invalid url path structure")
+
+		return
+	}
+
+	if len(paths) != 4 {
+		rsp.NotFound("not found metric, doesnt have name of it")
 
 		return
 	}
