@@ -6,10 +6,6 @@ import (
 )
 
 type (
-	MetricsAgent interface {
-		PollAndReport(log *zerolog.Logger)
-	}
-
 	MetricsServer interface {
 		GetAllMetrics() models.Metrics
 		GetMetric(metricType, metricName string) *float64
