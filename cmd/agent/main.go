@@ -11,11 +11,19 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics agent for collecting runtime metrics and then sending them to the server via HTTP protocol..")
 
+	parseFlag()
+
+	log.Info().
+		Str("server_address_remote", flagRemoteAddr).
+		Int("poll_interval", flagPollInterval).
+		Int("report_interval", flagReportInterval).
+		Msg("agent settings")
+
 	agentController := agent.NewController(
 		implementations.NewMetricListenModel(),
-		implementations.NewMetricSenderModel(),
-		2,
-		10,
+		implementations.NewMetricSenderModel(flagRemoteAddr),
+		flagPollInterval,
+		flagReportInterval,
 	)
 
 	agentController.ListenAndSend()

@@ -6,18 +6,28 @@ import (
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/metricsender"
 )
 
 type MetricSenderModel struct {
-	pollCount int64
+	pollCount           int64
+	remoteServerAddress string
 }
 
 var _ metricsender.Service = &MetricSenderModel{}
 
-func NewMetricSenderModel() *MetricSenderModel {
-	return &MetricSenderModel{}
+func NewMetricSenderModel(
+	remoteServerAddress string,
+) *MetricSenderModel {
+	if !strings.Contains(remoteServerAddress, `://`) {
+		remoteServerAddress = "http://" + remoteServerAddress
+	}
+
+	return &MetricSenderModel{
+		remoteServerAddress: remoteServerAddress,
+	}
 }
 
 func (m *MetricSenderModel) SendReplaceGauge(name string, value float64) error {
@@ -29,7 +39,7 @@ func (m *MetricSenderModel) SendAddCounter(name string, value int64) error {
 }
 
 func (m *MetricSenderModel) send(urlPath string) error {
-	request, err := http.NewRequest(http.MethodPost, "http://localhost:8080"+urlPath, nil)
+	request, err := http.NewRequest(http.MethodPost, m.remoteServerAddress+urlPath, nil)
 	if err != nil {
 		return err
 	}
