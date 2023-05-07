@@ -17,13 +17,13 @@ func NewMetricListenModel() *MetricListenModel {
 	return &MetricListenModel{}
 }
 
-func (m *MetricListenModel) GetMetrics() *metriclisten.Metrics {
+func (m *MetricListenModel) GetMetrics() metriclisten.Metrics {
 	var memStats = &runtime.MemStats{}
 	runtime.ReadMemStats(memStats)
 
 	metrics := matchMemStatsMetrics(memStats)
-	*metrics = append(
-		*metrics,
+	metrics = append(
+		metrics,
 		metriclisten.Metric{MetricName: PollCountMetric, MetricType: metriclisten.CounterMetricType, MetricValue: float64(m.pollCount)},
 		metriclisten.Metric{MetricName: RandomValueMetric, MetricType: metriclisten.GaugeMetricType, MetricValue: rand.Float64()},
 	)
@@ -31,8 +31,8 @@ func (m *MetricListenModel) GetMetrics() *metriclisten.Metrics {
 	return metrics
 }
 
-func matchMemStatsMetrics(m *runtime.MemStats) *metriclisten.Metrics {
-	return &metriclisten.Metrics{
+func matchMemStatsMetrics(m *runtime.MemStats) metriclisten.Metrics {
+	return metriclisten.Metrics{
 		metriclisten.Metric{MetricName: AllocMetric, MetricType: metriclisten.GaugeMetricType, MetricValue: float64(m.Alloc)},
 		metriclisten.Metric{MetricName: BuckHashSysMetric, MetricType: metriclisten.GaugeMetricType, MetricValue: float64(m.BuckHashSys)},
 		metriclisten.Metric{MetricName: FreesMetric, MetricType: metriclisten.GaugeMetricType, MetricValue: float64(m.Frees)},

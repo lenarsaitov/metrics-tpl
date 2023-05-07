@@ -14,5 +14,5 @@ const (
 )
 
 type Service interface {
-	GetMetrics() *Metrics
+	GetMetrics() Metrics
 }

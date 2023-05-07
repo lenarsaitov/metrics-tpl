@@ -62,6 +62,7 @@ func TestUpdate(t *testing.T) {
 			serverController.Update(w, request)
 
 			response := w.Result()
+			defer response.Body.Close()
 
 			require.Equal(t, response.StatusCode, test.want.statusCode, "incorrect status")
 		})
