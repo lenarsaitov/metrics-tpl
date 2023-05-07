@@ -1,7 +1,6 @@
 package update
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/lenarsaitov/metrics-tpl/internal/models/services/memstorage"
@@ -22,14 +21,11 @@ func NewHandler(memStorageService memstorage.Service) *Handler {
 func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *Input) {
 	log.Info().Msg("handle")
 
-	fmt.Println(input.MetricType)
-
 	switch input.MetricType {
 	case memstorage.GaugeMetricType:
 		gaugeValue, err := strconv.ParseFloat(input.MetricValue, 64)
 		if err != nil {
-			log.Error().Err(err).Msg("invalid value of gauge metrics, need float64")
-			rsp.InternalError()
+			rsp.BadRequest("invalid value of gauge metrics, need float64")
 
 			return
 		}
@@ -45,8 +41,7 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 	case memstorage.CounterMetricType:
 		countValue, err := strconv.Atoi(input.MetricValue)
 		if err != nil {
-			log.Error().Err(err).Msg("invalid value of counter metrics, need int64")
-			rsp.InternalError()
+			rsp.BadRequest("invalid value of counter metrics, need int64")
 
 			return
 		}
@@ -60,9 +55,7 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 
 		rsp.OK("counter was added successfully")
 	default:
-		log.Info().Str("metric_type", input.MetricName).Msg("unavailable metric type")
-
-		rsp.InternalError()
+		rsp.BadRequest("unavailable metric type, use counter or gauge")
 	}
 
 	log.Info().Msg("handled")
