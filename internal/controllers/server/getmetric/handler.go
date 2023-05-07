@@ -29,12 +29,12 @@ func (h *Handler) Handle(log *zerolog.Logger, rsp *responder.Responder, input *I
 
 		return rsp.OKWithBody(*value)
 	case services.CounterMetricType:
-		values := h.memStorageService.GetCounterMetric(input.MetricName)
-		if values == nil {
-			return rsp.NotFound("not found values of this counter metric")
+		value := h.memStorageService.GetCounterMetric(input.MetricName)
+		if value == nil {
+			return rsp.NotFound("not found value of this counter metric")
 		}
 
-		return rsp.OKWithBody((*values)[len(*values)-1])
+		return rsp.OKWithBody(*value)
 	default:
 		return rsp.BadRequest("unavailable metric type, use counter or gauge")
 	}
