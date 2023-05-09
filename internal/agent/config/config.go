@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -15,15 +16,11 @@ type Config struct {
 func GetConfiguration() (*Config, error) {
 	cfg := &Config{}
 
-	flag.StringVar(&cfg.RemoteAddr, "a", "", "address and port of server")
+	flag.StringVar(&cfg.RemoteAddr, "a", "http://localhost:8080", "address and port of server")
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "flag report interval")
 	flag.IntVar(&cfg.PollInterval, "p", 2, "flag poll interval")
 
 	flag.Parse()
-
-	if cfg.RemoteAddr == "" {
-		cfg.RemoteAddr = "http://localhost:8080"
-	}
 
 	if envRemoteAddr := os.Getenv("ADDRESS"); envRemoteAddr != "" {
 		cfg.RemoteAddr = envRemoteAddr
@@ -43,6 +40,15 @@ func GetConfiguration() (*Config, error) {
 			return nil, err
 		}
 		cfg.PollInterval = intervalSec
+	}
+
+	urlRemoteAddr, err := url.Parse(cfg.RemoteAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	if urlRemoteAddr.Scheme == "localhost" {
+		cfg.RemoteAddr = "http://" + cfg.RemoteAddr
 	}
 
 	return cfg, nil
