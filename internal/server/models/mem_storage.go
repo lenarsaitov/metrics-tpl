@@ -5,10 +5,17 @@ const (
 	GaugeMetricType   = "gauge"
 )
 
-type Metric struct {
-	MetricType  string
-	MetricName  string
-	MetricValue float64
+type GaugeMetric struct {
+	Name  string
+	Value float64
 }
 
-type Metrics []Metric
+type CounterMetric struct {
+	Name  string
+	Value int64
+}
+
+type Metrics struct {
+	GaugeMetrics   []GaugeMetric
+	CounterMetrics []CounterMetric
+}

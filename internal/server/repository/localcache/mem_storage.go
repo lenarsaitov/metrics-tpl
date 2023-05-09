@@ -17,21 +17,22 @@ func NewMemStorage() *MemStorage {
 }
 
 func (m *MemStorage) GetAllMetrics() models.Metrics {
-	metrics := models.Metrics{}
+	metrics := models.Metrics{
+		GaugeMetrics:   make([]models.GaugeMetric, 0, len(m.gaugeMetrics)),
+		CounterMetrics: make([]models.CounterMetric, 0, len(m.counterMetrics)),
+	}
 
 	for name, value := range m.gaugeMetrics {
-		metrics = append(metrics, models.Metric{
-			MetricType:  models.GaugeMetricType,
-			MetricName:  name,
-			MetricValue: value,
+		metrics.GaugeMetrics = append(metrics.GaugeMetrics, models.GaugeMetric{
+			Name:  name,
+			Value: value,
 		})
 	}
 
 	for name, value := range m.counterMetrics {
-		metrics = append(metrics, models.Metric{
-			MetricType:  models.CounterMetricType,
-			MetricName:  name,
-			MetricValue: float64(value),
+		metrics.CounterMetrics = append(metrics.CounterMetrics, models.CounterMetric{
+			Name:  name,
+			Value: value,
 		})
 	}
 
