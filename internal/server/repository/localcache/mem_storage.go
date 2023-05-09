@@ -1,30 +1,22 @@
-package implementations
+package localcache
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 )
 
-type ServerResponse struct {
-	Response struct {
-		Text string `json:"text,omitempty"`
-	} `json:"response,omitempty"`
-}
-
-type MemStorageModel struct {
+type MemStorage struct {
 	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
-var _ models.MemStorage = &MemStorageModel{}
-
-func NewMemStorageModel() *MemStorageModel {
-	return &MemStorageModel{
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
 		gaugeMetrics:   map[string]float64{},
 		counterMetrics: map[string]int64{},
 	}
 }
 
-func (m *MemStorageModel) GetAllMetrics() models.Metrics {
+func (m *MemStorage) GetAllMetrics() models.Metrics {
 	metrics := models.Metrics{}
 
 	for name, value := range m.gaugeMetrics {
@@ -46,7 +38,7 @@ func (m *MemStorageModel) GetAllMetrics() models.Metrics {
 	return metrics
 }
 
-func (m *MemStorageModel) GetGaugeMetric(name string) *float64 {
+func (m *MemStorage) GetGaugeMetric(name string) *float64 {
 	if value, ok := m.gaugeMetrics[name]; ok {
 		return &value
 	}
@@ -54,7 +46,7 @@ func (m *MemStorageModel) GetGaugeMetric(name string) *float64 {
 	return nil
 }
 
-func (m *MemStorageModel) GetCounterMetric(name string) *int64 {
+func (m *MemStorage) GetCounterMetric(name string) *int64 {
 	if value, ok := m.counterMetrics[name]; ok {
 		return &value
 	}
@@ -62,10 +54,10 @@ func (m *MemStorageModel) GetCounterMetric(name string) *int64 {
 	return nil
 }
 
-func (m *MemStorageModel) ReplaceGauge(name string, value float64) {
+func (m *MemStorage) ReplaceGauge(name string, value float64) {
 	m.gaugeMetrics[name] = value
 }
 
-func (m *MemStorageModel) AddCounter(name string, value int64) {
+func (m *MemStorage) AddCounter(name string, value int64) {
 	m.counterMetrics[name] = m.counterMetrics[name] + value
 }

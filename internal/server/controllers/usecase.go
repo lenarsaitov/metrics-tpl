@@ -1,4 +1,4 @@
-package usecase
+package controllers
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	MetricsServer interface {
+	MetricsServerUseCase interface {
 		GetAllMetrics() models.Metrics
 		GetMetric(metricType, metricName string) *float64
 		UpdateGaugeMetric(log *zerolog.Logger, metricName string, metricValue string) error

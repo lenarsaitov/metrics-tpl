@@ -2,15 +2,14 @@ package controllers
 
 import (
 	"github.com/google/uuid"
-	"github.com/lenarsaitov/metrics-tpl/internal/agent/usecase"
 	logger "github.com/rs/zerolog/log"
 )
 
 type Controller struct {
-	metricsUseCase usecase.MetricsAgent
+	metricsUseCase MetricsAgent
 }
 
-func New(metricsUseCase usecase.MetricsAgent) *Controller {
+func New(metricsUseCase MetricsAgent) *Controller {
 	return &Controller{
 		metricsUseCase: metricsUseCase,
 	}

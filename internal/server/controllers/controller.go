@@ -4,15 +4,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/usecase"
 	logger "github.com/rs/zerolog/log"
 )
 
 type Controller struct {
-	metricsUseCase usecase.MetricsServer
+	metricsUseCase MetricsServerUseCase
 }
 
-func New(metricsUseCase usecase.MetricsServer) *Controller {
+func New(metricsUseCase MetricsServerUseCase) *Controller {
 	return &Controller{
 		metricsUseCase: metricsUseCase,
 	}

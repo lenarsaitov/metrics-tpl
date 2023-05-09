@@ -7,30 +7,30 @@ import (
 )
 
 type MetricsUseCase struct {
-	memStorageService models.MemStorage
+	memStorage MemStorage
 }
 
-func NewMetricsUseCase(memStorageService models.MemStorage) *MetricsUseCase {
+func NewMetricsUseCase(memStorageService MemStorage) *MetricsUseCase {
 	return &MetricsUseCase{
-		memStorageService: memStorageService,
+		memStorage: memStorageService,
 	}
 }
 
 func (h *MetricsUseCase) GetAllMetrics() models.Metrics {
-	return h.memStorageService.GetAllMetrics()
+	return h.memStorage.GetAllMetrics()
 }
 
 func (h *MetricsUseCase) GetMetric(metricType, metricName string) *float64 {
 	switch metricType {
 	case models.GaugeMetricType:
-		value := h.memStorageService.GetGaugeMetric(metricName)
+		value := h.memStorage.GetGaugeMetric(metricName)
 		if value == nil {
 			return nil
 		}
 
 		return value
 	case models.CounterMetricType:
-		value := h.memStorageService.GetCounterMetric(metricName)
+		value := h.memStorage.GetCounterMetric(metricName)
 		if value == nil {
 			return nil
 		}
@@ -48,7 +48,7 @@ func (h *MetricsUseCase) UpdateGaugeMetric(log *zerolog.Logger, metricName strin
 		return err
 	}
 
-	h.memStorageService.ReplaceGauge(metricName, gaugeValue)
+	h.memStorage.ReplaceGauge(metricName, gaugeValue)
 
 	log.Info().
 		Str("metric_name", metricName).
@@ -64,7 +64,7 @@ func (h *MetricsUseCase) UpdateCounterMetric(log *zerolog.Logger, metricName str
 		return err
 	}
 
-	h.memStorageService.AddCounter(metricName, int64(countValue))
+	h.memStorage.AddCounter(metricName, int64(countValue))
 
 	log.Info().
 		Str("metric_name", metricName).

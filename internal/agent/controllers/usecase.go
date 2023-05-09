@@ -1,8 +1,6 @@
-package usecase
+package controllers
 
-import (
-	"github.com/rs/zerolog"
-)
+import "github.com/rs/zerolog"
 
 type (
 	MetricsAgent interface {

@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/models/implementations"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/localcache"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/usecase"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -62,7 +62,7 @@ func TestUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := usecase.NewMetricsUseCase(implementations.NewMemStorageModel())
+			useMetrics := usecase.NewMetricsUseCase(localcache.NewMemStorage())
 			serverController := New(useMetrics)
 
 			w := httptest.NewRecorder()
@@ -149,7 +149,7 @@ func TestGetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := implementations.NewMemStorageModel()
+			memStorageModel := localcache.NewMemStorage()
 
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
@@ -203,10 +203,10 @@ func TestGetAllMetrics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := implementations.NewMemStorageModel()
+			memStorageModel := localcache.NewMemStorage()
 			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
 
-			useMetrics := usecase.NewMetricsUseCase(implementations.NewMemStorageModel())
+			useMetrics := usecase.NewMetricsUseCase(localcache.NewMemStorage())
 
 			serverController := New(useMetrics)
 			w := httptest.NewRecorder()

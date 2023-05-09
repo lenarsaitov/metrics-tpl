@@ -8,8 +8,8 @@ import (
 )
 
 type MetricsUseCase struct {
-	metricPollService   models.MetricPoll
-	metricReportService models.MetricReport
+	metricPollService   MetricPoll
+	metricReportService MetricReport
 	polledMetrics       models.Metrics
 	pollCount           int64
 	pollInterval        int
@@ -17,15 +17,15 @@ type MetricsUseCase struct {
 }
 
 func NewMetricsUseCase(
-	metricPollService models.MetricPoll,
-	metricReportService models.MetricReport,
+	metricPollService MetricPoll,
+	metricReportService MetricReport,
 	pollInterval int,
 	reportInterval int,
 ) *MetricsUseCase {
 	return &MetricsUseCase{
 		metricPollService:   metricPollService,
 		metricReportService: metricReportService,
-		polledMetrics:       make(models.Metrics, 0),
+		polledMetrics:       models.Metrics{GaugeMetrics: make([]models.GaugeMetric, 0), CounterMetrics: make([]models.CounterMetric, 0)},
 		pollInterval:        pollInterval,
 		reportInterval:      reportInterval,
 	}
@@ -41,24 +41,20 @@ func (h *MetricsUseCase) PollAndReport(log *zerolog.Logger) {
 
 	log.Info().Msg("start report metrics...")
 	for {
-		for _, metric := range h.polledMetrics {
-			switch metric.MetricType {
-			case models.CounterMetricType:
-				err := h.metricReportService.ReportCounterMetric(metric.MetricName, int64(metric.MetricValue))
-				if err != nil {
-					log.Error().Err(err).Msg("failed to report counter metric")
+		for _, metric := range h.polledMetrics.GaugeMetrics {
+			err := h.metricReportService.ReportGaugeMetric(metric.Name, metric.Value)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to report gauge metric")
 
-					return
-				}
-			case models.GaugeMetricType:
-				err := h.metricReportService.ReportGaugeMetric(metric.MetricName, metric.MetricValue)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to report gauge metric")
+				return
+			}
+		}
+		for _, metric := range h.polledMetrics.CounterMetrics {
+			err := h.metricReportService.ReportCounterMetric(metric.Name, metric.Value)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to report counter metric")
 
-					return
-				}
-			default:
-				log.Warn().Str("metric_type", metric.MetricType).Msg("invalid metric type")
+				return
 			}
 		}
 
