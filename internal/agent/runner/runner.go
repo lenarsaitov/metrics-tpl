@@ -1,4 +1,4 @@
-package controllers
+package runner
 
 import (
 	"github.com/google/uuid"
@@ -12,17 +12,17 @@ type (
 	}
 )
 
-type Controller struct {
+type Runner struct {
 	metricsService MetricsService
 }
 
-func New(metricsService MetricsService) *Controller {
-	return &Controller{
+func New(metricsService MetricsService) *Runner {
+	return &Runner{
 		metricsService: metricsService,
 	}
 }
 
-func (c *Controller) PollAndReport() {
+func (c *Runner) PollAndReport() {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
 	c.metricsService.PollAndReport(&log)

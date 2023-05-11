@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/config"
-	"github.com/lenarsaitov/metrics-tpl/internal/agent/controllers"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/agent/runner"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/services"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -31,7 +31,6 @@ func main() {
 		cfg.ReportInterval,
 	)
 
-	agentController := controllers.New(service)
-
-	agentController.PollAndReport()
+	agentRunner := runner.New(service)
+	agentRunner.PollAndReport()
 }
