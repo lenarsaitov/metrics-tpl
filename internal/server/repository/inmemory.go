@@ -1,22 +1,22 @@
-package localcache
+package repository
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 )
 
-type MemStorage struct {
+type PollStorage struct {
 	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
+func NewPollStorage() *PollStorage {
+	return &PollStorage{
 		gaugeMetrics:   map[string]float64{},
 		counterMetrics: map[string]int64{},
 	}
 }
 
-func (m *MemStorage) GetAllMetrics() models.Metrics {
+func (m *PollStorage) GetAllMetrics() models.Metrics {
 	metrics := models.Metrics{
 		GaugeMetrics:   make([]models.GaugeMetric, 0, len(m.gaugeMetrics)),
 		CounterMetrics: make([]models.CounterMetric, 0, len(m.counterMetrics)),
@@ -39,7 +39,7 @@ func (m *MemStorage) GetAllMetrics() models.Metrics {
 	return metrics
 }
 
-func (m *MemStorage) GetGaugeMetric(name string) *float64 {
+func (m *PollStorage) GetGaugeMetric(name string) *float64 {
 	if value, ok := m.gaugeMetrics[name]; ok {
 		return &value
 	}
@@ -47,7 +47,7 @@ func (m *MemStorage) GetGaugeMetric(name string) *float64 {
 	return nil
 }
 
-func (m *MemStorage) GetCounterMetric(name string) *int64 {
+func (m *PollStorage) GetCounterMetric(name string) *int64 {
 	if value, ok := m.counterMetrics[name]; ok {
 		return &value
 	}
@@ -55,10 +55,10 @@ func (m *MemStorage) GetCounterMetric(name string) *int64 {
 	return nil
 }
 
-func (m *MemStorage) ReplaceGauge(name string, value float64) {
+func (m *PollStorage) ReplaceGauge(name string, value float64) {
 	m.gaugeMetrics[name] = value
 }
 
-func (m *MemStorage) AddCounter(name string, value int64) {
+func (m *PollStorage) AddCounter(name string, value int64) {
 	m.counterMetrics[name] = m.counterMetrics[name] + value
 }

@@ -2,21 +2,28 @@ package controllers
 
 import (
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
 )
 
+type (
+	MetricsService interface {
+		PollAndReport(log *zerolog.Logger)
+	}
+)
+
 type Controller struct {
-	metricsUseCase MetricsAgent
+	metricsService MetricsService
 }
 
-func New(metricsUseCase MetricsAgent) *Controller {
+func New(metricsService MetricsService) *Controller {
 	return &Controller{
-		metricsUseCase: metricsUseCase,
+		metricsService: metricsService,
 	}
 }
 
-func (c *Controller) ListenAndSend() {
+func (c *Controller) PollAndReport() {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
-	c.metricsUseCase.PollAndReport(&log)
+	c.metricsService.PollAndReport(&log)
 }

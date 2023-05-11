@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/config"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/controllers"
-	"github.com/lenarsaitov/metrics-tpl/internal/agent/repository/localcache"
-	"github.com/lenarsaitov/metrics-tpl/internal/agent/usecase"
+	"github.com/lenarsaitov/metrics-tpl/internal/agent/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/agent/services"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -24,14 +24,14 @@ func main() {
 		Int("report_interval", cfg.ReportInterval).
 		Msg("agent settings")
 
-	useMetrics := usecase.NewMetricsUseCase(
-		localcache.NewMetricPollStorage(),
-		localcache.NewMetricReportStorage(cfg.RemoteAddr),
+	service := services.NewMetricsService(
+		repository.NewPollStorage(),
+		cfg.RemoteAddr,
 		cfg.PollInterval,
 		cfg.ReportInterval,
 	)
 
-	agentController := controllers.New(useMetrics)
+	agentController := controllers.New(service)
 
-	agentController.ListenAndSend()
+	agentController.PollAndReport()
 }

@@ -3,8 +3,8 @@ package controllers
 import (
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/localcache"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/usecase"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
 	"github.com/stretchr/testify/require"
 	"io"
 	"math/rand"
@@ -62,7 +62,7 @@ func TestUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := usecase.NewMetricsUseCase(localcache.NewMemStorage())
+			useMetrics := services.NewMetricsService(repository.NewPollStorage())
 			serverController := New(useMetrics)
 
 			w := httptest.NewRecorder()
@@ -149,7 +149,7 @@ func TestGetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := localcache.NewMemStorage()
+			memStorageModel := repository.NewPollStorage()
 
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
@@ -160,7 +160,7 @@ func TestGetMetric(t *testing.T) {
 				}
 			}
 
-			useMetrics := usecase.NewMetricsUseCase(memStorageModel)
+			useMetrics := services.NewMetricsService(memStorageModel)
 
 			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
@@ -203,17 +203,17 @@ func TestGetAllMetrics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := localcache.NewMemStorage()
+			memStorageModel := repository.NewPollStorage()
 			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
 
-			useMetrics := usecase.NewMetricsUseCase(localcache.NewMemStorage())
+			useMetrics := services.NewMetricsService(memStorageModel)
 
 			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 
 			ctx := e.NewContext(request, w)
-			err := serverController.GetMetrics(ctx)
+			err := serverController.GetAllMetrics(ctx)
 			require.Nil(t, err)
 
 			response := w.Result()
