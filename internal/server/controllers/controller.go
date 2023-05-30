@@ -47,7 +47,7 @@ func (c *Controller) Update(ctx echo.Context) error {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to unmarshal body from request")
 
-		return err
+		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 	}
 
 	switch input.MType {
@@ -92,7 +92,7 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 	if err != nil {
 		log.Error().Err(err).Msg("failed unmarshal body from request")
 
-		return err
+		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 	}
 
 	if input.MType != models.GaugeMetricType && input.MType != models.CounterMetricType {
@@ -130,7 +130,7 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 		if err != nil {
 			log.Error().Err(err).Msg("invalid metric value")
 
-			return err
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
 		err = c.metricsService.UpdateCounterMetric(ctx.Param("metricName"), int64(countValue))
