@@ -52,6 +52,12 @@ func (c *Controller) Update(ctx echo.Context) error {
 
 	switch input.MType {
 	case models.GaugeMetricType:
+		if nil == input.Value {
+			log.Warn().Msg("value of gauge metric is empty")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+
 		err = c.metricsService.UpdateGaugeMetric(input.ID, *input.Value)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to update gauge metric")
@@ -65,6 +71,12 @@ func (c *Controller) Update(ctx echo.Context) error {
 			Msg("gauge was replaced successfully")
 
 	case models.CounterMetricType:
+		if nil == input.Delta {
+			log.Warn().Msg("value of counter metric is empty")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+
 		err = c.metricsService.UpdateCounterMetric(input.ID, *input.Delta)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to update counter metric")
