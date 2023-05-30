@@ -81,7 +81,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 				return
 			}
 
-			err = s.send(body)
+			err = s.send(log, body)
 			if err != nil {
 				log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
 
@@ -97,7 +97,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 				return
 			}
 
-			err = s.send(body)
+			err = s.send(log, body)
 			if err != nil {
 				log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
 
@@ -110,7 +110,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) send(body []byte) error {
+func (s *MetricsService) send(log *zerolog.Logger, body []byte) error {
 	reader := bytes.NewReader(body)
 
 	//var buf bytes.Buffer
@@ -131,13 +131,17 @@ func (s *MetricsService) send(body []byte) error {
 
 	request.Header.Set("Content-type", "application/json")
 	//request.Header.Set("Content-Encoding", "gzip")
+	request.Close = true
 
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		err = resp.Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("failed close resp body")
+		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {
