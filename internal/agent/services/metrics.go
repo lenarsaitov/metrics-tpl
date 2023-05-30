@@ -86,7 +86,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 
 			err = s.send(reader)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to report gauge metric")
+				log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
 
 				return
 			}
@@ -95,7 +95,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 			input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
 			body, err := json.Marshal(input)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal request body")
+				log.Error().Err(err).RawJSON("body", body).Msg("failed to marshal request body")
 
 				return
 			}
@@ -116,7 +116,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 }
 
 func (s *MetricsService) send(body io.Reader) error {
-	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update", body)
+	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update/", body)
 	if err != nil {
 		return err
 	}
