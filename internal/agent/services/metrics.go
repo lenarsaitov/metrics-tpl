@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
 	"github.com/rs/zerolog"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -82,9 +81,7 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 				return
 			}
 
-			reader := bytes.NewReader(body)
-
-			err = s.send(reader)
+			err = s.send(body)
 			if err != nil {
 				log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
 
@@ -100,11 +97,9 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 				return
 			}
 
-			reader := bytes.NewReader(body)
-
-			err = s.send(reader)
+			err = s.send(body)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to report counter metric")
+				log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
 
 				return
 			}
@@ -115,13 +110,27 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) send(body io.Reader) error {
-	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update/", body)
+func (s *MetricsService) send(body []byte) error {
+	reader := bytes.NewReader(body)
+
+	//var buf bytes.Buffer
+	//
+	//g := gzip.NewWriter(&buf)
+	//if _, err := g.Write(body); err != nil {
+	//	return err
+	//}
+	//
+	//if err := g.Close(); err != nil {
+	//	return err
+	//}
+
+	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update/", reader)
 	if err != nil {
 		return err
 	}
 
 	request.Header.Set("Content-type", "application/json")
+	//request.Header.Set("Content-Encoding", "gzip")
 
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
