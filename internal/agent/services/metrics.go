@@ -142,11 +142,11 @@ func (s *MetricsService) send(log *zerolog.Logger, body []byte) error {
 		return err
 	}
 
+	request.Close = true
 	request.Header.Set("Content-type", "application/json")
 	//request.Header.Set("Content-Encoding", "gzip")
-	request.Close = true
 
-	resp, err := http.DefaultClient.Do(request)
+	resp, err := s.client.Do(request)
 	if err != nil {
 		return err
 	}

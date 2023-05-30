@@ -121,7 +121,7 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 	}
 
 	if input.Delta == nil && input.Value == nil {
-		log.Warn().Str("metric_type", input.MType).Msg("not found metric")
+		log.Warn().Str("metric_name", input.ID).Str("metric_type", input.MType).Msg("not found metric")
 
 		return ctx.String(http.StatusNotFound, "not found metric")
 	}

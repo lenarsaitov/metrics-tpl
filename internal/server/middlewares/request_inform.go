@@ -12,7 +12,6 @@ func ApplyRequestInform(next echo.HandlerFunc) echo.HandlerFunc {
 		start := time.Now()
 
 		log.Info().
-			Str("from", c.Request().Header.Get("Referer")).
 			Str("content-type", c.Request().Header.Get("Content-Type")).
 			Str("uri", c.Request().URL.Path).
 			Str("request_method", c.Request().Method).Msg("request information")
