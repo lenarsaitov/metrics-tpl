@@ -14,12 +14,15 @@ func GetRouters() *echo.Echo {
 	useMetrics := services.NewMetricsService(repository.NewPollStorage())
 	serverController := controllers.New(useMetrics)
 
+	//e.Use(middlewares.ApplyRequestInform, middlewares.ApplyGZIP)
 	e.Use(middlewares.ApplyRequestInform)
 
-	e.Add(http.MethodGet, "/value/", serverController.GetMetric)
+	e.Add(http.MethodPost, "/value/", serverController.GetMetric)
 	e.Add(http.MethodPost, "/update/", serverController.Update)
+
 	e.Add(http.MethodGet, "/value/:metricType/:metricName", serverController.GetMetricPath)
 	e.Add(http.MethodPost, "/update/:metricType/:metricName/:metricValue", serverController.UpdatePath)
+
 	e.Add(http.MethodGet, "/", serverController.GetAllMetrics)
 
 	return e
