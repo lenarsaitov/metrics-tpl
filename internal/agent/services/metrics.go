@@ -23,6 +23,7 @@ type MetricOutput struct {
 }
 
 type MetricsService struct {
+	client              http.Client
 	metricPollService   PollStorage
 	polledMetrics       models.Metrics
 	remoteServerAddress string
@@ -37,7 +38,19 @@ func NewMetricsService(
 	pollInterval int,
 	reportInterval int,
 ) *MetricsService {
+	transport := &http.Transport{
+		TLSHandshakeTimeout: time.Duration(5 * int(time.Second)),
+		MaxConnsPerHost:     100,
+		IdleConnTimeout:     time.Duration(3 * int(time.Second)),
+	}
+
+	client := http.Client{
+		Transport: transport,
+		Timeout:   time.Duration(5 * int(time.Second)),
+	}
+
 	return &MetricsService{
+		client:              client,
 		metricPollService:   metricPollService,
 		remoteServerAddress: remoteServerAddress,
 		polledMetrics:       models.Metrics{GaugeMetrics: make([]models.GaugeMetric, 0), CounterMetrics: make([]models.CounterMetric, 0)},
