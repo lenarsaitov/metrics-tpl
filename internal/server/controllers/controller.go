@@ -7,6 +7,7 @@ import (
 	logger "github.com/rs/zerolog/log"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type (
@@ -100,6 +101,65 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 
 	metricValue := c.metricsService.GetMetric(input.MType, input.ID)
 	if metricValue == nil {
+		return ctx.String(http.StatusNotFound, "not found metric")
+	}
+
+	return ctx.JSON(http.StatusOK, *metricValue)
+}
+
+func (c *Controller) UpdatePath(ctx echo.Context) error {
+	log := logger.With().Logger()
+
+	switch ctx.Param("metricType") {
+	case models.GaugeMetricType:
+		gaugeValue, err := strconv.ParseFloat(ctx.Param("metricValue"), 64)
+		if err != nil {
+			log.Error().Err(err).Msg("invalid metric value")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+
+		err = c.metricsService.UpdateGaugeMetric(ctx.Param("metricName"), gaugeValue)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update gauge metric")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+	case models.CounterMetricType:
+		countValue, err := strconv.Atoi(ctx.Param("metricValue"))
+		if err != nil {
+			log.Error().Err(err).Msg("invalid metric value")
+
+			return err
+		}
+
+		err = c.metricsService.UpdateCounterMetric(ctx.Param("metricName"), int64(countValue))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update counter metric")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+	default:
+		return ctx.String(http.StatusBadRequest, "invalid type of metric")
+	}
+
+	return ctx.String(http.StatusOK, "metric was updated successfully")
+}
+
+func (c *Controller) GetMetricPath(ctx echo.Context) error {
+	log := logger.With().Logger()
+
+	metricType := ctx.Param("metricType")
+	if metricType != models.GaugeMetricType && metricType != models.CounterMetricType {
+		log.Warn().Str("metric_type", metricType).Msg("invalid metric type")
+
+		return ctx.String(http.StatusBadRequest, "invalid type of metric")
+	}
+
+	metricValue := c.metricsService.GetMetric(metricType, ctx.Param("metricName"))
+	if metricValue == nil {
+		log.Warn().Msg("metric not found")
+
 		return ctx.String(http.StatusNotFound, "not found metric")
 	}
 
