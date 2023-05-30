@@ -28,27 +28,12 @@ func (h *MetricsService) GetAllMetrics() models.Metrics {
 	return h.storage.GetAllMetrics()
 }
 
-func (h *MetricsService) GetMetric(metricType, metricName string) *float64 {
-	switch metricType {
-	case models.GaugeMetricType:
-		value := h.storage.GetGaugeMetric(metricName)
-		if value == nil {
-			return nil
-		}
+func (h *MetricsService) GetGaugeMetric(metricName string) *float64 {
+	return h.storage.GetGaugeMetric(metricName)
+}
 
-		return value
-	case models.CounterMetricType:
-		value := h.storage.GetCounterMetric(metricName)
-		if value == nil {
-			return nil
-		}
-
-		valueFloat64 := float64(*value)
-
-		return &valueFloat64
-	}
-
-	return nil
+func (h *MetricsService) GetCounterMetric(metricName string) *int64 {
+	return h.storage.GetCounterMetric(metricName)
 }
 
 func (h *MetricsService) UpdateGaugeMetric(metricName string, gaugeValue float64) error {

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
@@ -13,7 +14,8 @@ import (
 type (
 	MetricsService interface {
 		GetAllMetrics() models.Metrics
-		GetMetric(metricType, metricName string) *float64
+		GetGaugeMetric(metricName string) *float64
+		GetCounterMetric(metricName string) *int64
 		UpdateGaugeMetric(metricName string, gaugeValue float64) error
 		UpdateCounterMetric(metricName string, counterValue int64) error
 	}
@@ -107,16 +109,22 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 	}
 
-	if input.MType != models.GaugeMetricType && input.MType != models.CounterMetricType {
+	switch input.MType {
+	case models.GaugeMetricType:
+		input.Value = c.metricsService.GetGaugeMetric(input.ID)
+	case models.CounterMetricType:
+		input.Delta = c.metricsService.GetCounterMetric(input.ID)
+	default:
+		log.Warn().Str("metric_type", input.MType).Msg("invalid metric type")
+
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
 
-	metricValue := c.metricsService.GetMetric(input.MType, input.ID)
-	if metricValue == nil {
+	if input.Delta == nil && input.Value == nil {
 		return ctx.String(http.StatusNotFound, "not found metric")
 	}
 
-	return ctx.JSON(http.StatusOK, *metricValue)
+	return ctx.JSON(http.StatusOK, input)
 }
 
 func (c *Controller) UpdatePath(ctx echo.Context) error {
@@ -161,21 +169,29 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 func (c *Controller) GetMetricPath(ctx echo.Context) error {
 	log := logger.With().Logger()
 
-	metricType := ctx.Param("metricType")
-	if metricType != models.GaugeMetricType && metricType != models.CounterMetricType {
-		log.Warn().Str("metric_type", metricType).Msg("invalid metric type")
+	var metricDelta *float64
+	var metricValue *int64
 
-		return ctx.String(http.StatusBadRequest, "invalid type of metric")
+	switch ctx.Param("metricType") {
+	case models.GaugeMetricType:
+		metricDelta = c.metricsService.GetGaugeMetric(ctx.Param("metricName"))
+		if metricDelta == nil {
+			return ctx.String(http.StatusNotFound, "not found metric")
+		}
+
+		return ctx.JSON(http.StatusOK, *metricDelta)
+	case models.CounterMetricType:
+		metricValue = c.metricsService.GetCounterMetric(ctx.Param("metricName"))
+		if metricValue == nil {
+			return ctx.String(http.StatusNotFound, "not found metric")
+		}
+
+		return ctx.JSON(http.StatusOK, *metricValue)
 	}
 
-	metricValue := c.metricsService.GetMetric(metricType, ctx.Param("metricName"))
-	if metricValue == nil {
-		log.Warn().Msg("metric not found")
+	log.Warn().Str("metric_type", ctx.Param("metricType")).Msg("invalid metric type")
 
-		return ctx.String(http.StatusNotFound, "not found metric")
-	}
-
-	return ctx.JSON(http.StatusOK, *metricValue)
+	return ctx.String(http.StatusBadRequest, "invalid type of metric")
 }
 
 func (c *Controller) GetAllMetrics(ctx echo.Context) error {
@@ -183,13 +199,30 @@ func (c *Controller) GetAllMetrics(ctx echo.Context) error {
 }
 
 func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
-	b, err := io.ReadAll(ctx.Request().Body)
+	var reader io.Reader
+
+	if ctx.Request().Header.Get(`Content-Encoding`) == `gzip` {
+		gz, err := gzip.NewReader(ctx.Request().Body)
+		if err != nil {
+			http.Error(ctx.Response().Writer, err.Error(), http.StatusInternalServerError)
+
+			return nil, err
+		}
+		reader = gz
+		defer gz.Close()
+	} else {
+		reader = ctx.Request().Body
+	}
+
+	body, err := io.ReadAll(reader)
 	if err != nil {
+		http.Error(ctx.Response().Writer, err.Error(), http.StatusInternalServerError)
+
 		return nil, err
 	}
 
 	input := &MetricInput{}
-	err = json.Unmarshal(b, input)
+	err = json.Unmarshal(body, input)
 	if err != nil {
 		return nil, err
 	}
