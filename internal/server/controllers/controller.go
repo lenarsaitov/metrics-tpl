@@ -115,16 +115,18 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 	case models.CounterMetricType:
 		input.Delta = c.metricsService.GetCounterMetric(input.ID)
 	default:
-		log.Warn().Str("metric_type", input.MType).Msg("invalid metric type")
+		log.Warn().Str("metric_type", input.MType).Msg("invalid type of metric")
 
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
 
 	if input.Delta == nil && input.Value == nil {
+		log.Warn().Str("metric_type", input.MType).Msg("not found metric")
+
 		return ctx.String(http.StatusNotFound, "not found metric")
 	}
 
-	return ctx.JSON(http.StatusOK, input)
+	return ctx.JSON(http.StatusOK, *input)
 }
 
 func (c *Controller) UpdatePath(ctx echo.Context) error {
@@ -204,8 +206,6 @@ func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
 	if ctx.Request().Header.Get(`Content-Encoding`) == `gzip` {
 		gz, err := gzip.NewReader(ctx.Request().Body)
 		if err != nil {
-			http.Error(ctx.Response().Writer, err.Error(), http.StatusInternalServerError)
-
 			return nil, err
 		}
 		reader = gz
@@ -216,8 +216,6 @@ func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
 
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		http.Error(ctx.Response().Writer, err.Error(), http.StatusInternalServerError)
-
 		return nil, err
 	}
 
