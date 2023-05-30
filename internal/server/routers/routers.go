@@ -16,9 +16,9 @@ func GetRouters() *echo.Echo {
 
 	e.Use(middlewares.ApplyRequestInform)
 
+	e.Add(http.MethodGet, "/value", serverController.GetMetric)
+	e.Add(http.MethodPost, "/update", serverController.Update)
 	e.Add(http.MethodGet, "/", serverController.GetAllMetrics)
-	e.Add(http.MethodGet, "/value/:metricType/:metricName", serverController.GetMetric)
-	e.Add(http.MethodPost, "/update/:metricType/:metricName/:metricValue", serverController.Update)
 
 	return e
 }

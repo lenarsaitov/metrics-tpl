@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
@@ -13,13 +15,13 @@ import (
 	"testing"
 )
 
-func TestUpdate(t *testing.T) {
+func TestUpdateGauge(t *testing.T) {
 	var tests = []struct {
 		name    string
 		request struct {
 			metricType  string
 			metricName  string
-			metricValue string
+			metricValue float64
 			method      string
 		}
 		want struct {
@@ -31,29 +33,19 @@ func TestUpdate(t *testing.T) {
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue string
+				metricValue float64
 				method      string
-			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: "123", method: http.MethodPost},
+			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: 123, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
-		},
-		{
-			name: "test negative case, invalid metric value",
-			request: struct {
-				metricType  string
-				metricName  string
-				metricValue string
-				method      string
-			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: "123ssss", method: http.MethodPost},
-			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
 		},
 		{
 			name: "test negative case, incorrect metric type",
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue string
+				metricValue float64
 				method      string
-			}{metricType: "counter111", metricName: "Alloc", metricValue: "123", method: http.MethodPost},
+			}{metricType: "counter111", metricName: "Alloc", metricValue: 333, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
 		},
 	}
@@ -65,14 +57,82 @@ func TestUpdate(t *testing.T) {
 			useMetrics := services.NewMetricsService(repository.NewPollStorage())
 			serverController := New(useMetrics)
 
+			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Value: &test.request.metricValue}
+			body, err := json.Marshal(input)
+			require.Nil(t, err)
+
+			reader := bytes.NewReader(body)
 			w := httptest.NewRecorder()
-			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName/:metricValue", nil)
+			request := httptest.NewRequest(test.request.method, "/update", reader)
+			request.Header.Set("Content-type", "application/json")
 
 			ctx := e.NewContext(request, w)
-			ctx.SetParamNames("metricType", "metricName", "metricValue")
-			ctx.SetParamValues(test.request.metricType, test.request.metricName, test.request.metricValue)
 
-			err := serverController.Update(ctx)
+			err = serverController.Update(ctx)
+			require.Nil(t, err)
+
+			response := w.Result()
+			defer response.Body.Close()
+
+			require.Equal(t, response.StatusCode, test.want.statusCode, "incorrect status")
+		})
+	}
+}
+
+func TestUpdateCounter(t *testing.T) {
+	var tests = []struct {
+		name    string
+		request struct {
+			metricType  string
+			metricName  string
+			metricValue int64
+			method      string
+		}
+		want struct {
+			statusCode int
+		}
+	}{
+		{
+			name: "test success case",
+			request: struct {
+				metricType  string
+				metricName  string
+				metricValue int64
+				method      string
+			}{metricType: models.CounterMetricType, metricName: "Alloc", metricValue: 123, method: http.MethodPost},
+			want: struct{ statusCode int }{statusCode: http.StatusOK},
+		},
+		{
+			name: "test negative case, incorrect metric type",
+			request: struct {
+				metricType  string
+				metricName  string
+				metricValue int64
+				method      string
+			}{metricType: "counter111", metricName: "Counter", metricValue: 333, method: http.MethodPost},
+			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+
+			useMetrics := services.NewMetricsService(repository.NewPollStorage())
+			serverController := New(useMetrics)
+
+			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Delta: &test.request.metricValue}
+			body, err := json.Marshal(input)
+			require.Nil(t, err)
+
+			reader := bytes.NewReader(body)
+			w := httptest.NewRecorder()
+			request := httptest.NewRequest(test.request.method, "/update", reader)
+			request.Header.Set("Content-type", "application/json")
+
+			ctx := e.NewContext(request, w)
+
+			err = serverController.Update(ctx)
 			require.Nil(t, err)
 
 			response := w.Result()
@@ -161,16 +221,20 @@ func TestGetMetric(t *testing.T) {
 			}
 
 			useMetrics := services.NewMetricsService(memStorageModel)
-
 			serverController := New(useMetrics)
+
+			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType}
+			body, err := json.Marshal(input)
+			require.Nil(t, err)
+
+			reader := bytes.NewReader(body)
 			w := httptest.NewRecorder()
-			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
+			request := httptest.NewRequest(test.request.method, "/update", reader)
+			request.Header.Set("Content-type", "application/json")
 
 			ctx := e.NewContext(request, w)
-			ctx.SetParamNames("metricType", "metricName")
-			ctx.SetParamValues(test.request.metricType, test.request.metricName)
 
-			err := serverController.GetMetric(ctx)
+			err = serverController.GetMetric(ctx)
 			require.Nil(t, err)
 
 			response := w.Result()

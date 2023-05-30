@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/google/uuid"
+	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
+	"io"
 	"net/http"
 )
 
@@ -13,14 +13,21 @@ type (
 	MetricsService interface {
 		GetAllMetrics() models.Metrics
 		GetMetric(metricType, metricName string) *float64
-		UpdateGaugeMetric(log *zerolog.Logger, metricName string, metricValue string) error
-		UpdateCounterMetric(log *zerolog.Logger, metricName string, metricValue string) error
+		UpdateGaugeMetric(metricName string, gaugeValue float64) error
+		UpdateCounterMetric(metricName string, counterValue int64) error
 	}
 )
 
 const (
 	defaultBadRequestMessage = "bad request"
 )
+
+type MetricInput struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+}
 
 type Controller struct {
 	metricsService MetricsService
@@ -33,22 +40,44 @@ func New(metricsService MetricsService) *Controller {
 }
 
 func (c *Controller) Update(ctx echo.Context) error {
-	log := logger.With().Str("request_id", uuid.New().String()).Logger()
+	log := logger.With().Logger()
 
-	log.Info().Str("url", ctx.Request().URL.String()).Msg("url of request")
+	input, err := unmarshalRequestBody(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal body from request")
 
-	switch ctx.Param("metricType") {
+		return err
+	}
+
+	switch input.MType {
 	case models.GaugeMetricType:
-		err := c.metricsService.UpdateGaugeMetric(&log, ctx.Param("metricName"), ctx.Param("metricValue"))
+		err = c.metricsService.UpdateGaugeMetric(input.ID, *input.Value)
 		if err != nil {
+			log.Error().Err(err).Msg("failed to update gauge metric")
+
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
+
+		log.Info().
+			Str("metric_name", input.ID).
+			Float64("gauge_value", *input.Value).
+			Msg("gauge was replaced successfully")
+
 	case models.CounterMetricType:
-		err := c.metricsService.UpdateCounterMetric(&log, ctx.Param("metricName"), ctx.Param("metricValue"))
+		err = c.metricsService.UpdateCounterMetric(input.ID, *input.Delta)
 		if err != nil {
+			log.Error().Err(err).Msg("failed to update counter metric")
+
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
+
+		log.Info().
+			Str("metric_name", input.ID).
+			Int64("counter_value", *input.Delta).
+			Msg("counter was added successfully")
 	default:
+		log.Warn().Msg("unknow metric type")
+
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
 
@@ -56,16 +85,20 @@ func (c *Controller) Update(ctx echo.Context) error {
 }
 
 func (c *Controller) GetMetric(ctx echo.Context) error {
-	log := logger.With().Str("request_id", uuid.New().String()).Logger()
+	log := logger.With().Logger()
 
-	log.Info().Str("url", ctx.Request().URL.String()).Msg("url of request")
+	input, err := unmarshalRequestBody(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed unmarshal body from request")
 
-	metricType := ctx.Param("metricType")
-	if metricType != models.GaugeMetricType && metricType != models.CounterMetricType {
+		return err
+	}
+
+	if input.MType != models.GaugeMetricType && input.MType != models.CounterMetricType {
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
 
-	metricValue := c.metricsService.GetMetric(metricType, ctx.Param("metricName"))
+	metricValue := c.metricsService.GetMetric(input.MType, input.ID)
 	if metricValue == nil {
 		return ctx.String(http.StatusNotFound, "not found metric")
 	}
@@ -74,9 +107,20 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 }
 
 func (c *Controller) GetAllMetrics(ctx echo.Context) error {
-	log := logger.With().Str("request_id", uuid.New().String()).Logger()
-
-	log.Info().Str("url", ctx.Request().URL.String()).Msg("url of request")
-
 	return ctx.JSON(http.StatusOK, c.metricsService.GetAllMetrics())
+}
+
+func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
+	b, err := io.ReadAll(ctx.Request().Body)
+	if err != nil {
+		return nil, err
+	}
+
+	input := &MetricInput{}
+	err = json.Unmarshal(b, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return input, err
 }

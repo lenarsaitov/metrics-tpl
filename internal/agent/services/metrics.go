@@ -1,9 +1,12 @@
 package services
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
 	"github.com/rs/zerolog"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -11,6 +14,13 @@ import (
 
 type PollStorage interface {
 	GetPoll() models.Metrics
+}
+
+type MetricOutput struct {
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
 }
 
 type MetricsService struct {
@@ -64,7 +74,17 @@ func (s *MetricsService) pollMetrics(mu *sync.Mutex) {
 func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 	for {
 		for _, metric := range s.polledMetrics.GaugeMetrics {
-			err := s.send(fmt.Sprintf("/update/%s/%s/%f", models.GaugeMetricType, metric.Name, metric.Value))
+			input := &MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType}
+			body, err := json.Marshal(input)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal request body")
+
+				return
+			}
+
+			reader := bytes.NewReader(body)
+
+			err = s.send(reader)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to report gauge metric")
 
@@ -72,7 +92,17 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 			}
 		}
 		for _, metric := range s.polledMetrics.CounterMetrics {
-			err := s.send(fmt.Sprintf("/update/%s/%s/%d", models.CounterMetricType, metric.Name, metric.Value))
+			input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
+			body, err := json.Marshal(input)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal request body")
+
+				return
+			}
+
+			reader := bytes.NewReader(body)
+
+			err = s.send(reader)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to report counter metric")
 
@@ -85,8 +115,8 @@ func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) send(urlPath string) error {
-	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+urlPath, nil)
+func (s *MetricsService) send(body io.Reader) error {
+	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update", body)
 	if err != nil {
 		return err
 	}
@@ -102,7 +132,7 @@ func (s *MetricsService) send(urlPath string) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unsuccess response status: %d", resp.StatusCode)
+		return fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
 	}
 
 	return nil
