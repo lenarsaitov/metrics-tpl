@@ -40,16 +40,7 @@ func NewMetricsService(
 	pollInterval int,
 	reportInterval int,
 ) *MetricsService {
-	transport := &http.Transport{
-		TLSHandshakeTimeout: time.Duration(5 * int(time.Second)),
-		MaxConnsPerHost:     100,
-		IdleConnTimeout:     time.Duration(3 * int(time.Second)),
-	}
-
-	client := http.Client{
-		Transport: transport,
-		Timeout:   time.Duration(5 * int(time.Second)),
-	}
+	client := http.Client{}
 
 	return &MetricsService{
 		client:              client,
