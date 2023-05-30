@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
@@ -28,8 +29,9 @@ type MetricsService struct {
 	polledMetrics       models.Metrics
 	remoteServerAddress string
 	pollCount           int64
-	pollInterval        int
-	reportInterval      int
+	pollInterval        time.Duration
+	reportInterval      time.Duration
+	mu                  *sync.Mutex
 }
 
 func NewMetricsService(
@@ -54,76 +56,94 @@ func NewMetricsService(
 		metricPollService:   metricPollService,
 		remoteServerAddress: remoteServerAddress,
 		polledMetrics:       models.Metrics{GaugeMetrics: make([]models.GaugeMetric, 0), CounterMetrics: make([]models.CounterMetric, 0)},
-		pollInterval:        pollInterval,
-		reportInterval:      reportInterval,
+		pollInterval:        time.Duration(pollInterval) * time.Second,
+		reportInterval:      time.Duration(reportInterval) * time.Second,
+		mu:                  &sync.Mutex{},
 	}
 }
 
-func (s *MetricsService) PollAndReport(log *zerolog.Logger) {
-	var mu = &sync.Mutex{}
-
+func (s *MetricsService) PollAndReport(ctx context.Context, log *zerolog.Logger) {
 	log.Info().Msg("start poll metrics...")
-	go s.pollMetrics(mu)
-
-	time.Sleep(time.Second * time.Duration(s.pollInterval))
+	go s.pollMetrics(ctx, log)
 
 	log.Info().Msg("start report metrics...")
-	s.reportMetrics(log)
+	s.reportMetrics(ctx, log)
 }
 
-func (s *MetricsService) pollMetrics(mu *sync.Mutex) {
+func (s *MetricsService) pollMetrics(ctx context.Context, log *zerolog.Logger) {
+	ticker := time.NewTicker(s.pollInterval)
+	defer ticker.Stop()
+
 	for {
-		metrics := s.metricPollService.GetPoll()
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("poll ticker stopped by ctx")
 
-		mu.Lock()
-		s.polledMetrics = metrics
-		mu.Unlock()
-
-		time.Sleep(time.Second * time.Duration(s.pollInterval))
+			return
+		case <-ticker.C:
+			metrics := s.metricPollService.GetPoll()
+			s.mu.Lock()
+			s.polledMetrics = metrics
+			s.mu.Unlock()
+		}
 	}
 }
 
-func (s *MetricsService) reportMetrics(log *zerolog.Logger) {
+func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger) {
+	ticker := time.NewTicker(s.reportInterval)
+	defer ticker.Stop()
+
 	for {
-		for _, metric := range s.polledMetrics.GaugeMetrics {
-			input := &MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType}
-			body, err := json.Marshal(input)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to marshal request body")
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("report ticker stopped by ctx")
 
-				return
+			return
+		case <-ticker.C:
+			s.mu.Lock()
+			gaugeMetrics := s.polledMetrics.GaugeMetrics
+			counterMetrics := s.polledMetrics.CounterMetrics
+			s.mu.Unlock()
+
+			for _, metric := range gaugeMetrics {
+				input := &MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType}
+				body, err := json.Marshal(input)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to marshal request body")
+
+					return
+				}
+
+				err = s.send(ctx, log, body)
+				if err != nil {
+					log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
+
+					return
+				}
+			}
+			for _, metric := range counterMetrics {
+				input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
+				body, err := json.Marshal(input)
+				if err != nil {
+					log.Error().Err(err).RawJSON("body", body).Msg("failed to marshal request body")
+
+					return
+				}
+
+				err = s.send(ctx, log, body)
+				if err != nil {
+					log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
+
+					return
+				}
 			}
 
-			err = s.send(log, body)
-			if err != nil {
-				log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
-
-				return
-			}
+			log.Info().Interface("metrics", s.polledMetrics).Msg("reported metrics")
 		}
-		for _, metric := range s.polledMetrics.CounterMetrics {
-			input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
-			body, err := json.Marshal(input)
-			if err != nil {
-				log.Error().Err(err).RawJSON("body", body).Msg("failed to marshal request body")
-
-				return
-			}
-
-			err = s.send(log, body)
-			if err != nil {
-				log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
-
-				return
-			}
-		}
-
-		log.Info().Interface("metrics", s.polledMetrics).Msg("reported metrics")
-		time.Sleep(time.Second * time.Duration(s.reportInterval))
 	}
 }
 
-func (s *MetricsService) send(log *zerolog.Logger, body []byte) error {
+func (s *MetricsService) send(ctx context.Context, log *zerolog.Logger, body []byte) error {
 	reader := bytes.NewReader(body)
 
 	//var buf bytes.Buffer
@@ -137,7 +157,7 @@ func (s *MetricsService) send(log *zerolog.Logger, body []byte) error {
 	//	return err
 	//}
 
-	request, err := http.NewRequest(http.MethodPost, s.remoteServerAddress+"/update/", reader)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", reader)
 	if err != nil {
 		return err
 	}

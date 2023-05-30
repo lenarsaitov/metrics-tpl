@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
@@ -8,7 +9,7 @@ import (
 
 type (
 	MetricsService interface {
-		PollAndReport(log *zerolog.Logger)
+		PollAndReport(ctx context.Context, log *zerolog.Logger)
 	}
 )
 
@@ -22,8 +23,8 @@ func New(metricsService MetricsService) *Runner {
 	}
 }
 
-func (c *Runner) PollAndReport() {
+func (c *Runner) Run(ctx context.Context) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
-	c.metricsService.PollAndReport(&log)
+	c.metricsService.PollAndReport(ctx, &log)
 }
