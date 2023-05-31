@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -148,27 +149,25 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 }
 
 func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
-	reader := bytes.NewReader(body)
+	var buf bytes.Buffer
 
-	//var buf bytes.Buffer
-	//
-	//g := gzip.NewWriter(&buf)
-	//if _, err := g.Write(body); err != nil {
-	//	return err
-	//}
-	//
-	//if err := g.Close(); err != nil {
-	//	return err
-	//}
+	g := gzip.NewWriter(&buf)
+	if _, err := g.Write(body); err != nil {
+		return false, err
+	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", reader)
+	if err := g.Close(); err != nil {
+		return false, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", &buf)
 	if err != nil {
 		return false, err
 	}
 
 	request.Close = true
 	request.Header.Set("Content-type", "application/json")
-	//request.Header.Set("Content-Encoding", "gzip")
+	request.Header.Set("Content-Encoding", "gzip")
 
 	resp, err := s.client.Do(request)
 	if err != nil {

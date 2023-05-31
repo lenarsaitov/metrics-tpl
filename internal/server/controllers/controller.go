@@ -178,7 +178,12 @@ func (c *Controller) GetMetricPath(ctx echo.Context) error {
 }
 
 func (c *Controller) GetAllMetrics(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, c.metricsService.GetAllMetrics())
+	metrics, err := json.Marshal(c.metricsService.GetAllMetrics())
+	if err != nil {
+		return ctx.HTML(http.StatusInternalServerError, defaultBadRequestMessage)
+	}
+
+	return ctx.HTML(http.StatusOK, string(metrics))
 }
 
 func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {

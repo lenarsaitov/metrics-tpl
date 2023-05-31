@@ -2,9 +2,10 @@ package routers
 
 import (
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/controllers"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/middlewares"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/routers/middlewares"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
 	"net/http"
 )
@@ -14,8 +15,9 @@ func GetRouters() *echo.Echo {
 	useMetrics := services.NewMetricsService(repository.NewPollStorage())
 	serverController := controllers.New(useMetrics)
 
-	//e.Use(middlewares.ApplyRequestInform, middlewares.ApplyGZIP)
-	e.Use(middlewares.ApplyRequestInform)
+	e.Use(middlewares.ApplyRequestInform, middleware.GzipWithConfig(middleware.GzipConfig{
+		Level: 5,
+	}))
 
 	e.Add(http.MethodPost, "/value/", serverController.GetMetric)
 	e.Add(http.MethodPost, "/update/", serverController.Update)
