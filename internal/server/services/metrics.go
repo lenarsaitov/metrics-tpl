@@ -11,7 +11,7 @@ type Storage interface {
 	GetCounterMetric(name string) *int64
 
 	ReplaceGauge(name string, value float64)
-	AddCounter(name string, value int64)
+	AddCounter(name string, value int64) int64
 }
 
 type MetricsService struct {
@@ -36,14 +36,10 @@ func (h *MetricsService) GetCounterMetric(metricName string) *int64 {
 	return h.storage.GetCounterMetric(metricName)
 }
 
-func (h *MetricsService) UpdateGaugeMetric(metricName string, gaugeValue float64) error {
+func (h *MetricsService) UpdateGaugeMetric(metricName string, gaugeValue float64) {
 	h.storage.ReplaceGauge(metricName, gaugeValue)
-
-	return nil
 }
 
-func (h *MetricsService) UpdateCounterMetric(metricName string, counterValue int64) error {
-	h.storage.AddCounter(metricName, counterValue)
-
-	return nil
+func (h *MetricsService) UpdateCounterMetric(metricName string, counterValue int64) int64 {
+	return h.storage.AddCounter(metricName, counterValue)
 }

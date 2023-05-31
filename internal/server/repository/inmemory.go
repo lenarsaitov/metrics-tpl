@@ -59,6 +59,8 @@ func (m *PollStorage) ReplaceGauge(name string, value float64) {
 	m.gaugeMetrics[name] = value
 }
 
-func (m *PollStorage) AddCounter(name string, value int64) {
+func (m *PollStorage) AddCounter(name string, value int64) int64 {
 	m.counterMetrics[name] = m.counterMetrics[name] + value
+
+	return m.counterMetrics[name]
 }

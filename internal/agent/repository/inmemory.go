@@ -50,6 +50,8 @@ func NewPollStorage() *PollStorage {
 
 func (m *PollStorage) GetPoll() models.Metrics {
 	metrics := getRuntimePoll()
+	m.pollCount++
+
 	metrics.CounterMetrics = append(metrics.CounterMetrics, models.CounterMetric{Name: PollCountMetric, Value: m.pollCount})
 	metrics.GaugeMetrics = append(metrics.GaugeMetrics, models.GaugeMetric{Name: RandomValueMetric, Value: rand.Float64()})
 

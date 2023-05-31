@@ -16,8 +16,8 @@ type (
 		GetAllMetrics() models.Metrics
 		GetGaugeMetric(metricName string) *float64
 		GetCounterMetric(metricName string) *int64
-		UpdateGaugeMetric(metricName string, gaugeValue float64) error
-		UpdateCounterMetric(metricName string, counterValue int64) error
+		UpdateGaugeMetric(metricName string, gaugeValue float64)
+		UpdateCounterMetric(metricName string, counterValue int64) int64
 	}
 )
 
@@ -60,12 +60,7 @@ func (c *Controller) Update(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		err = c.metricsService.UpdateGaugeMetric(input.ID, *input.Value)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to update gauge metric")
-
-			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
-		}
+		c.metricsService.UpdateGaugeMetric(input.ID, *input.Value)
 
 		log.Info().
 			Str("metric_name", input.ID).
@@ -79,12 +74,8 @@ func (c *Controller) Update(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		err = c.metricsService.UpdateCounterMetric(input.ID, *input.Delta)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to update counter metric")
-
-			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
-		}
+		actualCounterValue := float64(c.metricsService.UpdateCounterMetric(input.ID, *input.Delta))
+		input.Value = &actualCounterValue
 
 		log.Info().
 			Str("metric_name", input.ID).
@@ -96,7 +87,7 @@ func (c *Controller) Update(ctx echo.Context) error {
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
 
-	return ctx.String(http.StatusOK, "metric was updated successfully")
+	return ctx.JSON(http.StatusOK, *input)
 }
 
 func (c *Controller) GetMetric(ctx echo.Context) error {
@@ -141,12 +132,7 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		err = c.metricsService.UpdateGaugeMetric(ctx.Param("metricName"), gaugeValue)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to update gauge metric")
-
-			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
-		}
+		c.metricsService.UpdateGaugeMetric(ctx.Param("metricName"), gaugeValue)
 	case models.CounterMetricType:
 		countValue, err := strconv.Atoi(ctx.Param("metricValue"))
 		if err != nil {
@@ -155,12 +141,7 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		err = c.metricsService.UpdateCounterMetric(ctx.Param("metricName"), int64(countValue))
-		if err != nil {
-			log.Error().Err(err).Msg("failed to update counter metric")
-
-			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
-		}
+		c.metricsService.UpdateCounterMetric(ctx.Param("metricName"), int64(countValue))
 	default:
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
