@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
 	"github.com/rs/zerolog"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -159,7 +161,11 @@ func (s *MetricsService) send(ctx context.Context, body []byte) error {
 
 	resp, err := s.client.Do(request)
 	if err != nil {
-		return nil
+		if errors.As(err, &io.EOF) {
+			return nil
+		}
+
+		return err
 	}
 	defer resp.Body.Close()
 
