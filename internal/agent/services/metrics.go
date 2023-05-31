@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -107,11 +108,16 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 					return
 				}
 
-				err = s.send(ctx, body)
+				ok, err := s.send(ctx, body)
 				if err != nil {
 					log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
 
 					return
+				}
+
+				if !ok {
+					log.Warn().Msg("couldn't send request, try next attempt")
+					time.Sleep(time.Second)
 				}
 			}
 			for _, metric := range counterMetrics {
@@ -123,11 +129,16 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 					return
 				}
 
-				err = s.send(ctx, body)
+				ok, err := s.send(ctx, body)
 				if err != nil {
 					log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
 
 					return
+				}
+
+				if !ok {
+					log.Warn().Msg("couldn't send request, try next attempt")
+					time.Sleep(time.Second)
 				}
 			}
 
@@ -136,7 +147,7 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 	}
 }
 
-func (s *MetricsService) send(ctx context.Context, body []byte) error {
+func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
 	reader := bytes.NewReader(body)
 
 	//var buf bytes.Buffer
@@ -152,7 +163,7 @@ func (s *MetricsService) send(ctx context.Context, body []byte) error {
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", reader)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	request.Close = true
@@ -161,17 +172,17 @@ func (s *MetricsService) send(ctx context.Context, body []byte) error {
 
 	resp, err := s.client.Do(request)
 	if err != nil {
-		if errors.As(err, &io.EOF) {
-			return nil
+		if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
+			return false, nil
 		}
 
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
+		return false, fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
 	}
 
-	return nil
+	return true, nil
 }
