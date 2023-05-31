@@ -159,7 +159,7 @@ func (s *MetricsService) send(ctx context.Context, body []byte) error {
 
 	resp, err := s.client.Do(request)
 	if err != nil {
-		return err
+		return nil
 	}
 	defer resp.Body.Close()
 
