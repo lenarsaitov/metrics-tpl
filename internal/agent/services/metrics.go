@@ -105,7 +105,7 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 					return
 				}
 
-				err = s.send(ctx, log, body)
+				err = s.send(ctx, body)
 				if err != nil {
 					log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
 
@@ -121,7 +121,7 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 					return
 				}
 
-				err = s.send(ctx, log, body)
+				err = s.send(ctx, body)
 				if err != nil {
 					log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
 
@@ -134,7 +134,7 @@ func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger)
 	}
 }
 
-func (s *MetricsService) send(ctx context.Context, log *zerolog.Logger, body []byte) error {
+func (s *MetricsService) send(ctx context.Context, body []byte) error {
 	reader := bytes.NewReader(body)
 
 	//var buf bytes.Buffer
@@ -161,12 +161,7 @@ func (s *MetricsService) send(ctx context.Context, log *zerolog.Logger, body []b
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = resp.Body.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("failed close resp body")
-		}
-	}()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
