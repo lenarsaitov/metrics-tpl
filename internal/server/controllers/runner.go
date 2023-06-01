@@ -63,6 +63,7 @@ func (r *Runner) restoreMetrics() error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -144,6 +145,7 @@ func (r *Runner) savingMetrics(logger *zerolog.Logger) {
 
 		return
 	}
+	defer file.Close()
 
 	_, err = file.Write(data)
 	if err != nil {
