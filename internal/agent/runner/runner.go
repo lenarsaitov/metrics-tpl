@@ -23,8 +23,8 @@ func New(metricsService MetricsService) *Runner {
 	}
 }
 
-func (c *Runner) Run(ctx context.Context) {
+func (r *Runner) Run(ctx context.Context) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
-	c.metricsService.PollAndReport(ctx, &log)
+	r.metricsService.PollAndReport(ctx, &log)
 }

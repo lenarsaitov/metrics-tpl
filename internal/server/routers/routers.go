@@ -1,8 +1,10 @@
 package routers
 
 import (
+	"context"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/config"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/controllers"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/routers/middlewares"
@@ -10,11 +12,15 @@ import (
 	"net/http"
 )
 
-func GetRouters() *echo.Echo {
+func GetRouters(cfg *config.Config) *echo.Echo {
 	e := echo.New()
-	useMetrics := services.NewMetricsService(repository.NewPollStorage())
-	serverController := controllers.New(useMetrics)
 
+	useMetrics := services.NewMetricsService(repository.NewPollStorage())
+
+	runnerController := controllers.NewRunner(useMetrics, cfg.StoreInterval, cfg.FileStoragePath)
+	runnerController.Run(context.Background(), cfg.Restore)
+
+	serverController := controllers.NewServer(useMetrics)
 	e.Use(middlewares.ApplyRequestInform, middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))

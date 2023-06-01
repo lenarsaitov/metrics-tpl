@@ -15,7 +15,7 @@ func main() {
 	cfg := config.GetConfiguration()
 
 	log.Info().Msg("running server on: " + cfg.AddrRun)
-	if err := http.ListenAndServe(cfg.AddrRun, routers.GetRouters()); err != nil {
+	if err := http.ListenAndServe(cfg.AddrRun, routers.GetRouters(cfg)); err != nil {
 		log.Fatal().Err(err).Msg("failed to run web server")
 	}
 }

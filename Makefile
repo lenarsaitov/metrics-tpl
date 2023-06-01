@@ -19,4 +19,9 @@ test:
 autotest:
 	go build -o cmd/server/server cmd/server/*.go
 	go build -o cmd/agent/agent cmd/agent/*.go
-	./metricstest -test.v -test.run=^TestIteration8$  -agent-binary-path=cmd/agent/agent -binary-path=cmd/server/server -source-path=. -server-port=8080
+	./metricstest -test.v -test.run=^TestIteration9$ \
+                                      -agent-binary-path=cmd/agent/agent \
+                                      -binary-path=cmd/server/server \
+                                      -file-storage-path=/tmp/metrics-db.json \
+                                      -server-port=8080 \
+                                      -source-path=.
