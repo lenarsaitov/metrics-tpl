@@ -5,7 +5,7 @@ import (
 )
 
 type Storage interface {
-	GetAllMetrics() models.Metrics
+	GetAll() models.Metrics
 
 	GetGaugeMetric(name string) *float64
 	GetCounterMetric(name string) *int64
@@ -24,8 +24,8 @@ func NewMetricsService(storageService Storage) *MetricsService {
 	}
 }
 
-func (h *MetricsService) GetAllMetrics() models.Metrics {
-	return h.storage.GetAllMetrics()
+func (h *MetricsService) GetAll() models.Metrics {
+	return h.storage.GetAll()
 }
 
 func (h *MetricsService) GetGaugeMetric(metricName string) *float64 {

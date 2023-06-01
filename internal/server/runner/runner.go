@@ -1,4 +1,4 @@
-package controllers
+package runner
 
 import (
 	"context"
@@ -12,13 +12,21 @@ import (
 	"time"
 )
 
+type (
+	MetricsService interface {
+		GetAll() models.Metrics
+		UpdateGaugeMetric(metricName string, gaugeValue float64)
+		UpdateCounterMetric(metricName string, counterValue int64) int64
+	}
+)
+
 type Runner struct {
 	metricsService  MetricsService
-	storeInterval   time.Duration
 	fileStoragePath string
+	storeInterval   time.Duration
 }
 
-func NewRunner(
+func New(
 	metricsService MetricsService,
 	storeInterval int,
 	fileStoragePath string,
@@ -103,7 +111,7 @@ func (r *Runner) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger)
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			data, err := json.Marshal(r.metricsService.GetAllMetrics())
+			data, err := json.Marshal(r.metricsService.GetAll())
 			if err != nil {
 				log.Info().Msg("saving metrics ticker stopped by ctx")
 
@@ -132,7 +140,7 @@ func (r *Runner) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger)
 func (r *Runner) savingMetrics(logger *zerolog.Logger) {
 	log := logger
 
-	data, err := json.Marshal(r.metricsService.GetAllMetrics())
+	data, err := json.Marshal(r.metricsService.GetAll())
 	if err != nil {
 		log.Info().Msg("saving metrics ticker stopped by ctx")
 

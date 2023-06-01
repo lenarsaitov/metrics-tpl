@@ -63,7 +63,7 @@ func TestUpdatePath(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName/:metricValue", nil)
@@ -157,7 +157,7 @@ func TestGetMetricPath(t *testing.T) {
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
 
@@ -184,8 +184,8 @@ func TestUpdateGauge(t *testing.T) {
 		request struct {
 			metricType  string
 			metricName  string
-			metricValue float64
 			method      string
+			metricValue float64
 		}
 		want struct {
 			statusCode int
@@ -196,8 +196,8 @@ func TestUpdateGauge(t *testing.T) {
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue float64
 				method      string
+				metricValue float64
 			}{metricType: models.GaugeMetricType, metricName: "Alloc", metricValue: 123, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
 		},
@@ -206,8 +206,8 @@ func TestUpdateGauge(t *testing.T) {
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue float64
 				method      string
+				metricValue float64
 			}{metricType: "counter111", metricName: "Alloc", metricValue: 333, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
 		},
@@ -218,7 +218,7 @@ func TestUpdateGauge(t *testing.T) {
 			e := echo.New()
 
 			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Value: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -248,8 +248,8 @@ func TestUpdateCounter(t *testing.T) {
 		request struct {
 			metricType  string
 			metricName  string
-			metricValue int64
 			method      string
+			metricValue int64
 		}
 		want struct {
 			statusCode int
@@ -260,8 +260,8 @@ func TestUpdateCounter(t *testing.T) {
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue int64
 				method      string
+				metricValue int64
 			}{metricType: models.CounterMetricType, metricName: "Alloc", metricValue: 123, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusOK},
 		},
@@ -270,8 +270,8 @@ func TestUpdateCounter(t *testing.T) {
 			request: struct {
 				metricType  string
 				metricName  string
-				metricValue int64
 				method      string
+				metricValue int64
 			}{metricType: "counter111", metricName: "Counter", metricValue: 333, method: http.MethodPost},
 			want: struct{ statusCode int }{statusCode: http.StatusBadRequest},
 		},
@@ -282,7 +282,7 @@ func TestUpdateCounter(t *testing.T) {
 			e := echo.New()
 
 			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Delta: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -384,7 +384,7 @@ func TestGetMetric(t *testing.T) {
 			}
 
 			useMetrics := services.NewMetricsService(memStorageModel)
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType}
 			body, err := json.Marshal(input)
@@ -435,7 +435,7 @@ func TestGetAllMetrics(t *testing.T) {
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := NewServer(useMetrics)
+			serverController := New(useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 

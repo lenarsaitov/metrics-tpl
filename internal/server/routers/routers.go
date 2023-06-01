@@ -8,6 +8,7 @@ import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/controllers"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/routers/middlewares"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/runner"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
 	"net/http"
 )
@@ -17,10 +18,9 @@ func GetRouters(cfg *config.Config) *echo.Echo {
 
 	useMetrics := services.NewMetricsService(repository.NewPollStorage())
 
-	runnerController := controllers.NewRunner(useMetrics, cfg.StoreInterval, cfg.FileStoragePath)
-	runnerController.Run(context.Background(), cfg.Restore)
+	runner.New(useMetrics, cfg.StoreInterval, cfg.FileStoragePath).Run(context.Background(), cfg.Restore)
+	serverController := controllers.New(useMetrics)
 
-	serverController := controllers.NewServer(useMetrics)
 	e.Use(middlewares.ApplyRequestInform, middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))

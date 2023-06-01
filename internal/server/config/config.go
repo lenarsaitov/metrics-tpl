@@ -8,8 +8,8 @@ import (
 
 type Config struct {
 	AddrRun         string
-	StoreInterval   int
 	FileStoragePath string
+	StoreInterval   int
 	Restore         bool
 }
 

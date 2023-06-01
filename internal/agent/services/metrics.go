@@ -21,21 +21,21 @@ type PollStorage interface {
 }
 
 type MetricOutput struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
 }
 
 type MetricsService struct {
-	client              http.Client
 	metricPollService   PollStorage
-	polledMetrics       models.Metrics
+	mu                  *sync.Mutex
+	client              http.Client
 	remoteServerAddress string
+	polledMetrics       models.Metrics
 	pollCount           int64
 	pollInterval        time.Duration
 	reportInterval      time.Duration
-	mu                  *sync.Mutex
 }
 
 func NewMetricsService(
@@ -57,15 +57,7 @@ func NewMetricsService(
 	}
 }
 
-func (s *MetricsService) PollAndReport(ctx context.Context, log *zerolog.Logger) {
-	log.Info().Msg("start poll metrics...")
-	go s.pollMetrics(ctx, log)
-
-	log.Info().Msg("start report metrics...")
-	s.reportMetrics(ctx, log)
-}
-
-func (s *MetricsService) pollMetrics(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) Poll(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 
@@ -84,7 +76,7 @@ func (s *MetricsService) pollMetrics(ctx context.Context, log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.reportInterval)
 	defer ticker.Stop()
 

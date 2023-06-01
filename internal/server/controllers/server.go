@@ -15,18 +15,28 @@ const (
 	defaultBadRequestMessage = "bad request"
 )
 
+type (
+	MetricsService interface {
+		GetAll() models.Metrics
+		GetGaugeMetric(metricName string) *float64
+		GetCounterMetric(metricName string) *int64
+		UpdateGaugeMetric(metricName string, gaugeValue float64)
+		UpdateCounterMetric(metricName string, counterValue int64) int64
+	}
+)
+
 type MetricInput struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
 }
 
 type Controller struct {
 	metricsService MetricsService
 }
 
-func NewServer(metricsService MetricsService) *Controller {
+func New(metricsService MetricsService) *Controller {
 	return &Controller{
 		metricsService: metricsService,
 	}
@@ -168,7 +178,7 @@ func (c *Controller) GetMetricPath(ctx echo.Context) error {
 }
 
 func (c *Controller) GetAllMetrics(ctx echo.Context) error {
-	metrics, err := json.Marshal(c.metricsService.GetAllMetrics())
+	metrics, err := json.Marshal(c.metricsService.GetAll())
 	if err != nil {
 		return ctx.HTML(http.StatusInternalServerError, defaultBadRequestMessage)
 	}

@@ -15,7 +15,7 @@ run/agent:
 test:
 	go test -cover ./...
 
-## test: run all autotests
+## autotest: run all autotests of some iteration
 autotest:
 	go build -o cmd/server/server cmd/server/*.go
 	go build -o cmd/agent/agent cmd/agent/*.go
@@ -25,3 +25,7 @@ autotest:
                                       -file-storage-path=/tmp/metrics-db.json \
                                       -server-port=8080 \
                                       -source-path=.
+
+## test: move fields of structures to best positions
+autofix:
+	fieldalignment -fix ./...
