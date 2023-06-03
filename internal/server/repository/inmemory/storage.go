@@ -1,4 +1,4 @@
-package repository
+package inmemory
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"

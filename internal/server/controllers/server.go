@@ -2,13 +2,16 @@ package controllers
 
 import (
 	"compress/gzip"
+	"database/sql"
 	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	logger "github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strconv"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
@@ -34,17 +37,37 @@ type MetricInput struct {
 
 type Controller struct {
 	metricsService MetricsService
+	dataSourceName string
 }
 
-func New(metricsService MetricsService) *Controller {
+func New(dataSourceName string, metricsService MetricsService) *Controller {
 	return &Controller{
+		dataSourceName: dataSourceName,
 		metricsService: metricsService,
 	}
 }
 
-func (c *Controller) Update(ctx echo.Context) error {
-	log := logger.With().Logger()
+func (c *Controller) PingDB(ctx echo.Context) error {
+	//ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+	//	`localhost`, `video`, `XXXXXXXX`, `video`)
 
+	db, err := sql.Open("pgx", c.dataSourceName)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to connect to postgresql database")
+
+		return ctx.String(http.StatusInternalServerError, defaultBadRequestMessage)
+	}
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		return ctx.String(http.StatusInternalServerError, defaultBadRequestMessage)
+	}
+
+	return ctx.String(http.StatusOK, "OK")
+}
+
+func (c *Controller) Update(ctx echo.Context) error {
 	input, err := unmarshalRequestBody(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to unmarshal body from request")
@@ -91,8 +114,6 @@ func (c *Controller) Update(ctx echo.Context) error {
 }
 
 func (c *Controller) GetMetric(ctx echo.Context) error {
-	log := logger.With().Logger()
-
 	input, err := unmarshalRequestBody(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed unmarshal body from request")
@@ -121,8 +142,6 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 }
 
 func (c *Controller) UpdatePath(ctx echo.Context) error {
-	log := logger.With().Logger()
-
 	switch ctx.Param("metricType") {
 	case models.GaugeMetricType:
 		gaugeValue, err := strconv.ParseFloat(ctx.Param("metricValue"), 64)
@@ -150,8 +169,6 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 }
 
 func (c *Controller) GetMetricPath(ctx echo.Context) error {
-	log := logger.With().Logger()
-
 	var metricDelta *float64
 	var metricValue *int64
 

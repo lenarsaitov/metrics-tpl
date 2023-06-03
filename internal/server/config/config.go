@@ -9,6 +9,7 @@ import (
 type Config struct {
 	AddrRun         string
 	FileStoragePath string
+	DatabaseDSN     string
 	StoreInterval   int
 	Restore         bool
 }
@@ -20,6 +21,7 @@ func GetConfiguration() *Config {
 	flag.IntVar(&cfg.StoreInterval, "i", 300, "time interval readings are saved to disk")
 	flag.StringVar(&cfg.FileStoragePath, "f", "/tmp/metrics-db.json", "path of the file where the current values are saved")
 	flag.BoolVar(&cfg.Restore, "r", true, "load previously saved values from the specified file when the server starts")
+	flag.StringVar(&cfg.DatabaseDSN, "d", "", "load previously saved values from the specified file when the server starts")
 
 	flag.Parse()
 
@@ -43,6 +45,10 @@ func GetConfiguration() *Config {
 		if nil == err {
 			cfg.Restore = boolean
 		}
+	}
+
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		cfg.DatabaseDSN = envDatabaseDSN
 	}
 
 	return cfg

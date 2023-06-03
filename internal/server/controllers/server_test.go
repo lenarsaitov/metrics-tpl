@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/inmemory"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -62,8 +62,8 @@ func TestUpdatePath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName/:metricValue", nil)
@@ -145,7 +145,7 @@ func TestGetMetricPath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
-			memStorageModel := repository.NewPollStorage()
+			memStorageModel := inmemory.NewPollStorage()
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
 				case models.GaugeMetricType:
@@ -157,7 +157,7 @@ func TestGetMetricPath(t *testing.T) {
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
 
@@ -217,8 +217,8 @@ func TestUpdateGauge(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Value: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -281,8 +281,8 @@ func TestUpdateCounter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Delta: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -372,7 +372,7 @@ func TestGetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := repository.NewPollStorage()
+			memStorageModel := inmemory.NewPollStorage()
 
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
@@ -384,7 +384,7 @@ func TestGetMetric(t *testing.T) {
 			}
 
 			useMetrics := services.NewMetricsService(memStorageModel)
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType}
 			body, err := json.Marshal(input)
@@ -430,12 +430,12 @@ func TestGetAllMetrics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := repository.NewPollStorage()
+			memStorageModel := inmemory.NewPollStorage()
 			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 

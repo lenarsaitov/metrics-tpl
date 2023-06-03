@@ -19,11 +19,12 @@ test:
 autotest:
 	go build -o cmd/server/server cmd/server/*.go
 	go build -o cmd/agent/agent cmd/agent/*.go
-	./metricstest -test.v -test.run=^TestIteration9$ \
+	./metricstest -test.v -test.run=^TestIteration10$ \
                                       -agent-binary-path=cmd/agent/agent \
                                       -binary-path=cmd/server/server \
                                       -file-storage-path=/tmp/metrics-db.json \
                                       -server-port=8080 \
+                                      -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
                                       -source-path=.
 
 ## test: move fields of structures to best positions
