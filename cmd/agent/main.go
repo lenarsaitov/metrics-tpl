@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/config"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/repository"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/runner"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/services"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -24,6 +27,9 @@ func main() {
 		Int("report_interval", cfg.ReportInterval).
 		Msg("agent settings")
 
+	ctx, cnl := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer cnl()
+
 	service := services.NewMetricsService(
 		repository.NewPollStorage(),
 		cfg.RemoteAddr,
@@ -32,5 +38,5 @@ func main() {
 	)
 
 	agentRunner := runner.New(service)
-	agentRunner.PollAndReport()
+	agentRunner.Run(ctx)
 }

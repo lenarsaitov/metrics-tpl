@@ -16,7 +16,7 @@ func NewPollStorage() *PollStorage {
 	}
 }
 
-func (m *PollStorage) GetAllMetrics() models.Metrics {
+func (m *PollStorage) GetAll() models.Metrics {
 	metrics := models.Metrics{
 		GaugeMetrics:   make([]models.GaugeMetric, 0, len(m.gaugeMetrics)),
 		CounterMetrics: make([]models.CounterMetric, 0, len(m.counterMetrics)),
@@ -59,6 +59,8 @@ func (m *PollStorage) ReplaceGauge(name string, value float64) {
 	m.gaugeMetrics[name] = value
 }
 
-func (m *PollStorage) AddCounter(name string, value int64) {
+func (m *PollStorage) AddCounter(name string, value int64) int64 {
 	m.counterMetrics[name] = m.counterMetrics[name] + value
+
+	return m.counterMetrics[name]
 }
