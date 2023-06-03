@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/config"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/repository"
-	"github.com/lenarsaitov/metrics-tpl/internal/agent/runner"
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/services"
+	"github.com/lenarsaitov/metrics-tpl/internal/agent/worker"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os/signal"
@@ -37,6 +37,6 @@ func main() {
 		cfg.ReportInterval,
 	)
 
-	agentRunner := runner.New(service)
-	agentRunner.Run(ctx)
+	agentWorker := worker.New(service)
+	agentWorker.Run(ctx)
 }

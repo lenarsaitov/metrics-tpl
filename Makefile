@@ -24,7 +24,7 @@ autotest:
                                       -binary-path=cmd/server/server \
                                       -file-storage-path=/tmp/metrics-db.json \
                                       -server-port=8080 \
-                                      -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
+                                      -database-dsn='postgresql://secret:secret@localhost:5432/test?sslmode=disable' \
                                       -source-path=.
 
 ## test: move fields of structures to best positions

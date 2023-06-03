@@ -7,24 +7,35 @@ import (
 	"github.com/lenarsaitov/metrics-tpl/internal/server/config"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/controllers"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/inmemory"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/postgres"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/routers/middlewares"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/runner"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/worker"
 	"net/http"
 )
 
-func GetRouters(cfg *config.Config) *echo.Echo {
+func GetRouters(ctx context.Context, cfg *config.Config) (*echo.Echo, error) {
 	e := echo.New()
 
-	memoryStorage := inmemory.NewPollStorage()
-	useMetrics := services.NewMetricsService(memoryStorage)
+	var storage services.Storage
+	var err error
+	if cfg.DatabaseDSN != "" {
+		storage, err = postgres.NewPollStorage(ctx, cfg.DatabaseDSN)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		storage = inmemory.NewPollStorage()
+	}
 
-	runner.New(useMetrics, cfg.StoreInterval, cfg.FileStoragePath).Run(context.Background(), cfg.Restore)
+	e.Use(
+		middlewares.ApplyRequestInform,
+		middleware.GzipWithConfig(middleware.GzipConfig{Level: 5}),
+	)
+
+	useMetrics := services.NewMetricsService(storage)
+	worker.New(useMetrics, cfg.StoreInterval, cfg.FileStoragePath).Run(ctx, cfg.Restore)
 	serverController := controllers.New(cfg.DatabaseDSN, useMetrics)
-
-	e.Use(middlewares.ApplyRequestInform, middleware.GzipWithConfig(middleware.GzipConfig{
-		Level: 5,
-	}))
 
 	e.Add(http.MethodGet, "/ping", serverController.PingDB)
 
@@ -36,5 +47,5 @@ func GetRouters(cfg *config.Config) *echo.Echo {
 
 	e.Add(http.MethodGet, "/", serverController.GetAllMetrics)
 
-	return e
+	return e, nil
 }

@@ -1,4 +1,4 @@
-package runner
+package worker
 
 import (
 	"context"
@@ -14,17 +14,17 @@ type (
 	}
 )
 
-type Runner struct {
+type Worker struct {
 	metricsService MetricsService
 }
 
-func New(metricsService MetricsService) *Runner {
-	return &Runner{
+func New(metricsService MetricsService) *Worker {
+	return &Worker{
 		metricsService: metricsService,
 	}
 }
 
-func (r *Runner) Run(ctx context.Context) {
+func (r *Worker) Run(ctx context.Context) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
 	log.Info().Msg("start poll metrics...")

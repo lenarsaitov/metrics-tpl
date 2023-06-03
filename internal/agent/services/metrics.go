@@ -103,7 +103,7 @@ func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 
 				ok, err := s.send(ctx, body)
 				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
+					log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report gauge metric")
 
 					return
 				}
@@ -124,7 +124,7 @@ func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 
 				ok, err := s.send(ctx, body)
 				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
+					log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report counter metric")
 
 					return
 				}
@@ -140,11 +140,11 @@ func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
+func (s *MetricsService) send(ctx context.Context, reqBody []byte) (bool, error) {
 	var buf bytes.Buffer
 
 	g := gzip.NewWriter(&buf)
-	if _, err := g.Write(body); err != nil {
+	if _, err := g.Write(reqBody); err != nil {
 		return false, err
 	}
 
@@ -171,8 +171,13 @@ func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
+		return false, fmt.Errorf("unsuccess response, url: %s, body: %s, status: %d", request.URL.String(), string(respBody), resp.StatusCode)
 	}
 
 	return true, nil

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
@@ -149,9 +150,11 @@ func TestGetMetricPath(t *testing.T) {
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
 				case models.GaugeMetricType:
-					memStorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+					err := memStorageModel.ReplaceGauge(context.Background(), test.request.metricName, rand.Float64())
+					require.Nil(t, err)
 				case models.CounterMetricType:
-					memStorageModel.AddCounter(test.request.metricName, rand.Int63())
+					_, err := memStorageModel.AddCounter(context.Background(), test.request.metricName, rand.Int63())
+					require.Nil(t, err)
 				}
 			}
 
@@ -377,9 +380,11 @@ func TestGetMetric(t *testing.T) {
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
 				case models.GaugeMetricType:
-					memStorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+					err := memStorageModel.ReplaceGauge(context.Background(), test.request.metricName, rand.Float64())
+					require.Nil(t, err)
 				case models.CounterMetricType:
-					memStorageModel.AddCounter(test.request.metricName, rand.Int63())
+					_, err := memStorageModel.AddCounter(context.Background(), test.request.metricName, rand.Int63())
+					require.Nil(t, err)
 				}
 			}
 
@@ -431,7 +436,8 @@ func TestGetAllMetrics(t *testing.T) {
 			e := echo.New()
 
 			memStorageModel := inmemory.NewPollStorage()
-			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
+			err := memStorageModel.ReplaceGauge(context.Background(), models.GaugeMetricType, rand.Float64())
+			require.Nil(t, err)
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
@@ -440,7 +446,7 @@ func TestGetAllMetrics(t *testing.T) {
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 
 			ctx := e.NewContext(request, w)
-			err := serverController.GetAllMetrics(ctx)
+			err = serverController.GetAllMetrics(ctx)
 			require.Nil(t, err)
 
 			response := w.Result()

@@ -2,29 +2,31 @@ package controllers
 
 import (
 	"compress/gzip"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strconv"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
-	defaultBadRequestMessage = "bad request"
+	defaultInternalErrorMessage = `something going wrong: %s`
+	defaultBadRequestMessage    = "bad request"
 )
 
 type (
 	MetricsService interface {
-		GetAll() models.Metrics
-		GetGaugeMetric(metricName string) *float64
-		GetCounterMetric(metricName string) *int64
-		UpdateGaugeMetric(metricName string, gaugeValue float64)
-		UpdateCounterMetric(metricName string, counterValue int64) int64
+		GetAll(ctx context.Context) (models.Metrics, error)
+		GetGaugeMetric(ctx context.Context, metricName string) (*float64, error)
+		GetCounterMetric(ctx context.Context, metricName string) (*int64, error)
+		UpdateGaugeMetric(ctx context.Context, metricName string, gaugeValue float64) error
+		UpdateCounterMetric(ctx context.Context, metricName string, counterValue int64) (int64, error)
 	}
 )
 
@@ -48,20 +50,17 @@ func New(dataSourceName string, metricsService MetricsService) *Controller {
 }
 
 func (c *Controller) PingDB(ctx echo.Context) error {
-	//ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-	//	`localhost`, `video`, `XXXXXXXX`, `video`)
-
 	db, err := sql.Open("pgx", c.dataSourceName)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to connect to postgresql database")
 
-		return ctx.String(http.StatusInternalServerError, defaultBadRequestMessage)
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
 	defer db.Close()
 
-	err = db.Ping()
+	err = db.PingContext(context.Background())
 	if err != nil {
-		return ctx.String(http.StatusInternalServerError, defaultBadRequestMessage)
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
 
 	return ctx.String(http.StatusOK, "OK")
@@ -83,7 +82,12 @@ func (c *Controller) Update(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		c.metricsService.UpdateGaugeMetric(input.ID, *input.Value)
+		err = c.metricsService.UpdateGaugeMetric(context.Background(), input.ID, *input.Value)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update gauge metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
 
 		log.Info().
 			Str("metric_name", input.ID).
@@ -97,7 +101,14 @@ func (c *Controller) Update(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		actualCounterValue := float64(c.metricsService.UpdateCounterMetric(input.ID, *input.Delta))
+		value, err := c.metricsService.UpdateCounterMetric(context.Background(), input.ID, *input.Delta)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update counter metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
+		actualCounterValue := float64(value)
 		input.Value = &actualCounterValue
 
 		log.Info().
@@ -123,9 +134,23 @@ func (c *Controller) GetMetric(ctx echo.Context) error {
 
 	switch input.MType {
 	case models.GaugeMetricType:
-		input.Value = c.metricsService.GetGaugeMetric(input.ID)
+		value, err := c.metricsService.GetGaugeMetric(context.Background(), input.ID)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get gauge metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
+		input.Value = value
 	case models.CounterMetricType:
-		input.Delta = c.metricsService.GetCounterMetric(input.ID)
+		delta, err := c.metricsService.GetCounterMetric(context.Background(), input.ID)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get counter metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
+		input.Delta = delta
 	default:
 		log.Warn().Str("metric_type", input.MType).Msg("invalid type of metric")
 
@@ -151,7 +176,17 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		c.metricsService.UpdateGaugeMetric(ctx.Param("metricName"), gaugeValue)
+		err = c.metricsService.UpdateGaugeMetric(context.Background(), ctx.Param("metricName"), gaugeValue)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update gauge metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
+		log.Info().
+			Str("metric_name", ctx.Param("metricName")).
+			Float64("gauge_value", gaugeValue).
+			Msg("gauge was replaced successfully")
 	case models.CounterMetricType:
 		countValue, err := strconv.Atoi(ctx.Param("metricValue"))
 		if err != nil {
@@ -160,7 +195,16 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
 		}
 
-		c.metricsService.UpdateCounterMetric(ctx.Param("metricName"), int64(countValue))
+		_, err = c.metricsService.UpdateCounterMetric(context.Background(), ctx.Param("metricName"), int64(countValue))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to update counter metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+		log.Info().
+			Str("metric_name", ctx.Param("metricName")).
+			Int("counter_value", countValue).
+			Msg("counter was added successfully")
 	default:
 		return ctx.String(http.StatusBadRequest, "invalid type of metric")
 	}
@@ -171,17 +215,30 @@ func (c *Controller) UpdatePath(ctx echo.Context) error {
 func (c *Controller) GetMetricPath(ctx echo.Context) error {
 	var metricDelta *float64
 	var metricValue *int64
+	var err error
 
 	switch ctx.Param("metricType") {
 	case models.GaugeMetricType:
-		metricDelta = c.metricsService.GetGaugeMetric(ctx.Param("metricName"))
+		metricDelta, err = c.metricsService.GetGaugeMetric(context.Background(), ctx.Param("metricName"))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get gauge metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
 		if metricDelta == nil {
 			return ctx.String(http.StatusNotFound, "not found metric")
 		}
 
 		return ctx.JSON(http.StatusOK, *metricDelta)
 	case models.CounterMetricType:
-		metricValue = c.metricsService.GetCounterMetric(ctx.Param("metricName"))
+		metricValue, err = c.metricsService.GetCounterMetric(context.Background(), ctx.Param("metricName"))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get counter metric")
+
+			return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+		}
+
 		if metricValue == nil {
 			return ctx.String(http.StatusNotFound, "not found metric")
 		}
@@ -195,12 +252,19 @@ func (c *Controller) GetMetricPath(ctx echo.Context) error {
 }
 
 func (c *Controller) GetAllMetrics(ctx echo.Context) error {
-	metrics, err := json.Marshal(c.metricsService.GetAll())
+	metrics, err := c.metricsService.GetAll(context.Background())
 	if err != nil {
-		return ctx.HTML(http.StatusInternalServerError, defaultBadRequestMessage)
+		log.Error().Err(err).Msg("failed to get metrics")
+
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
 
-	return ctx.HTML(http.StatusOK, string(metrics))
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		return ctx.HTML(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+	}
+
+	return ctx.HTML(http.StatusOK, string(data))
 }
 
 func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
