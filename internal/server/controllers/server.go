@@ -67,11 +67,17 @@ func (c *Controller) PingDB(ctx echo.Context) error {
 }
 
 func (c *Controller) Update(ctx echo.Context) error {
-	input, err := unmarshalRequestBody(ctx)
+	body, err := getRequestBody(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal body from request")
+		log.Error().Err(err).Msg("failed get body from request")
 
 		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+	}
+
+	input := &MetricInput{}
+	err = json.Unmarshal(body, input)
+	if err != nil {
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
 
 	switch input.MType {
@@ -124,12 +130,83 @@ func (c *Controller) Update(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, *input)
 }
 
-func (c *Controller) GetMetric(ctx echo.Context) error {
-	input, err := unmarshalRequestBody(ctx)
+func (c *Controller) Updates(ctx echo.Context) error {
+	body, err := getRequestBody(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("failed unmarshal body from request")
+		log.Error().Err(err).Msg("failed get body from request")
 
 		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+	}
+
+	var inputMetrics []MetricInput
+	err = json.Unmarshal(body, &inputMetrics)
+	if err != nil {
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+	}
+	for _, input := range inputMetrics {
+		switch input.MType {
+		case models.GaugeMetricType:
+			if nil == input.Value {
+				log.Warn().Msg("value of gauge metric is empty")
+
+				return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+			}
+
+			err = c.metricsService.UpdateGaugeMetric(context.Background(), input.ID, *input.Value)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to update gauge metric")
+
+				return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+			}
+
+			log.Info().
+				Str("metric_name", input.ID).
+				Float64("gauge_value", *input.Value).
+				Msg("gauge was replaced successfully")
+
+		case models.CounterMetricType:
+			if nil == input.Delta {
+				log.Warn().Msg("value of counter metric is empty")
+
+				return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+			}
+
+			value, err := c.metricsService.UpdateCounterMetric(context.Background(), input.ID, *input.Delta)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to update counter metric")
+
+				return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
+			}
+
+			actualCounterValue := float64(value)
+			input.Value = &actualCounterValue
+
+			log.Info().
+				Str("metric_name", input.ID).
+				Int64("counter_value", *input.Delta).
+				Msg("counter was added successfully")
+		default:
+			log.Warn().Msg("unknow metric type")
+
+			return ctx.String(http.StatusBadRequest, "invalid type of metric")
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, "OK")
+}
+
+func (c *Controller) GetMetric(ctx echo.Context) error {
+	body, err := getRequestBody(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed get body from request")
+
+		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+	}
+
+	input := &MetricInput{}
+	err = json.Unmarshal(body, input)
+	if err != nil {
+		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
 
 	switch input.MType {
@@ -267,7 +344,7 @@ func (c *Controller) GetAllMetrics(ctx echo.Context) error {
 	return ctx.HTML(http.StatusOK, string(data))
 }
 
-func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
+func getRequestBody(ctx echo.Context) ([]byte, error) {
 	var reader io.Reader
 
 	if ctx.Request().Header.Get(`Content-Encoding`) == `gzip` {
@@ -286,11 +363,5 @@ func unmarshalRequestBody(ctx echo.Context) (*MetricInput, error) {
 		return nil, err
 	}
 
-	input := &MetricInput{}
-	err = json.Unmarshal(body, input)
-	if err != nil {
-		return nil, err
-	}
-
-	return input, err
+	return body, err
 }

@@ -92,47 +92,33 @@ func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 			counterMetrics := s.polledMetrics.CounterMetrics
 			s.mu.Unlock()
 
+			var input []MetricOutput
+
 			for _, metric := range gaugeMetrics {
-				input := &MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType}
-				body, err := json.Marshal(input)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to marshal request body")
-
-					return
-				}
-
-				ok, err := s.send(ctx, body)
-				if err != nil {
-					log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report gauge metric")
-
-					return
-				}
-
-				if !ok {
-					log.Warn().Msg("couldn't send request, try next attempt")
-					time.Sleep(time.Second)
-				}
+				input = append(input, MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType})
 			}
+
 			for _, metric := range counterMetrics {
-				input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
-				body, err := json.Marshal(input)
-				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to marshal request body")
+				input = append(input, MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType})
+			}
 
-					return
-				}
+			body, err := json.Marshal(input)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal request body")
 
-				ok, err := s.send(ctx, body)
-				if err != nil {
-					log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report counter metric")
+				return
+			}
 
-					return
-				}
+			ok, err := s.send(ctx, body)
+			if err != nil {
+				log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report gauge metric")
 
-				if !ok {
-					log.Warn().Msg("couldn't send request, try next attempt")
-					time.Sleep(time.Second)
-				}
+				return
+			}
+
+			if !ok {
+				log.Warn().Msg("couldn't send request, try next attempt")
+				time.Sleep(time.Second)
 			}
 
 			log.Info().Interface("metrics", s.polledMetrics).Msg("reported metrics")
@@ -152,7 +138,7 @@ func (s *MetricsService) send(ctx context.Context, reqBody []byte) (bool, error)
 		return false, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", &buf)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/updates/", &buf)
 	if err != nil {
 		return false, err
 	}

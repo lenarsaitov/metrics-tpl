@@ -42,6 +42,8 @@ func GetRouters(ctx context.Context, cfg *config.Config) (*echo.Echo, error) {
 	e.Add(http.MethodPost, "/value/", serverController.GetMetric)
 	e.Add(http.MethodPost, "/update/", serverController.Update)
 
+	e.Add(http.MethodPost, "/updates/", serverController.Updates)
+
 	e.Add(http.MethodGet, "/value/:metricType/:metricName", serverController.GetMetricPath)
 	e.Add(http.MethodPost, "/update/:metricType/:metricName/:metricValue", serverController.UpdatePath)
 
