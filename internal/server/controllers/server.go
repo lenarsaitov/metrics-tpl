@@ -143,6 +143,11 @@ func (c *Controller) Updates(ctx echo.Context) error {
 	if err != nil {
 		return ctx.String(http.StatusInternalServerError, fmt.Sprintf(defaultInternalErrorMessage, err.Error()))
 	}
+
+	if len(inputMetrics) == 0 {
+		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+	}
+
 	for _, input := range inputMetrics {
 		switch input.MType {
 		case models.GaugeMetricType:
@@ -192,7 +197,7 @@ func (c *Controller) Updates(ctx echo.Context) error {
 		}
 	}
 
-	return ctx.JSON(http.StatusOK, "OK")
+	return ctx.JSON(http.StatusOK, inputMetrics[0])
 }
 
 func (c *Controller) GetMetric(ctx echo.Context) error {
