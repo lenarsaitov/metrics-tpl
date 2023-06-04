@@ -53,7 +53,7 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 
 	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return metrics, err
+		return models.Metrics{}, err
 	}
 	defer func() {
 		if err != nil {
@@ -61,17 +61,12 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 			if errRollback != nil {
 				log.Error().Err(errRollback).Msg("failed to rollback transaction")
 			}
-		} else {
-			errCommit := tx.Commit()
-			if errCommit != nil {
-				log.Error().Err(errCommit).Msg("failed to commit transaction")
-			}
 		}
 	}()
 
 	rows, err := tx.QueryContext(ctx, "SELECT name, value FROM gauge_metrics")
 	if err != nil {
-		return metrics, err
+		return models.Metrics{}, err
 	}
 	defer rows.Close()
 
@@ -81,7 +76,7 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 		if err != nil {
 			log.Error().Err(err).Msg("failed to scan fields from gauge metrics table")
 
-			return metrics, err
+			return models.Metrics{}, err
 		}
 
 		metrics.GaugeMetrics = append(metrics.GaugeMetrics, metric)
@@ -90,7 +85,7 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 	if err = rows.Err(); err != nil {
 		log.Error().Err(err).Msg("error when parse rows")
 
-		return metrics, err
+		return models.Metrics{}, err
 	}
 
 	rows, err = tx.QueryContext(ctx, "SELECT name, value FROM counter_metrics")
@@ -105,7 +100,7 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 		if err != nil {
 			log.Error().Err(err).Msg("failed to scan fields from counter metrics table")
 
-			return metrics, err
+			return models.Metrics{}, err
 		}
 
 		metrics.CounterMetrics = append(metrics.CounterMetrics, metric)
@@ -114,7 +109,14 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 	if err = rows.Err(); err != nil {
 		log.Error().Err(err).Msg("error when parse rows")
 
-		return metrics, err
+		return models.Metrics{}, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to commit transaction")
+
+		return models.Metrics{}, err
 	}
 
 	return metrics, nil
@@ -176,11 +178,6 @@ func (m *PollStorage) ReplaceGauge(ctx context.Context, name string, value float
 			if errRollback != nil {
 				log.Error().Err(errRollback).Msg("failed to rollback transaction")
 			}
-		} else {
-			errCommit := tx.Commit()
-			if errCommit != nil {
-				log.Error().Err(errCommit).Msg("failed to commit transaction")
-			}
 		}
 	}()
 
@@ -210,6 +207,13 @@ func (m *PollStorage) ReplaceGauge(ctx context.Context, name string, value float
 		return err
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to commit transaction")
+
+		return err
+	}
+
 	return nil
 }
 
@@ -228,11 +232,6 @@ func (m *PollStorage) AddCounter(ctx context.Context, name string, delta int64) 
 			errRollback := tx.Rollback()
 			if errRollback != nil {
 				log.Error().Err(errRollback).Msg("failed to rollback transaction")
-			}
-		} else {
-			errCommit := tx.Commit()
-			if errCommit != nil {
-				log.Error().Err(errCommit).Msg("failed to commit transaction")
 			}
 		}
 	}()
@@ -260,6 +259,13 @@ func (m *PollStorage) AddCounter(ctx context.Context, name string, delta int64) 
 	_, err = tx.ExecContext(ctx, "UPDATE counter_metrics SET value = $1, delta = $2, updated_at = $3 WHERE name = $4", newValue, delta, time.Now(), name)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to exec request update counter metric")
+
+		return 0, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to commit transaction")
 
 		return 0, err
 	}
