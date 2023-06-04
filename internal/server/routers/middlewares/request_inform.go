@@ -2,13 +2,12 @@ package middlewares
 
 import (
 	"github.com/labstack/echo"
-	logger "github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
 func ApplyRequestInform(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		log := logger.With().Logger()
 		start := time.Now()
 
 		log.Info().

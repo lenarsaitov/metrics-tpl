@@ -9,8 +9,8 @@ import (
 
 type (
 	MetricsService interface {
-		Poll(ctx context.Context, log *zerolog.Logger)
-		Report(ctx context.Context, log *zerolog.Logger)
+		PollWithTicker(ctx context.Context, log *zerolog.Logger)
+		ReportWithTicker(ctx context.Context, log *zerolog.Logger)
 	}
 )
 
@@ -28,8 +28,8 @@ func (r *Worker) Run(ctx context.Context) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
 	log.Info().Msg("start poll metrics...")
-	go r.metricsService.Poll(ctx, &log)
+	go r.metricsService.PollWithTicker(ctx, &log)
 
 	log.Info().Msg("start report metrics...")
-	r.metricsService.Report(ctx, &log)
+	r.metricsService.ReportWithTicker(ctx, &log)
 }
