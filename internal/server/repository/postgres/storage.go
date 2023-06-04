@@ -197,6 +197,13 @@ func (m *PollStorage) ReplaceGauge(ctx context.Context, name string, value float
 			return err
 		}
 
+		err = tx.Commit()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to commit transaction")
+
+			return err
+		}
+
 		return nil
 	}
 
@@ -248,6 +255,13 @@ func (m *PollStorage) AddCounter(ctx context.Context, name string, delta int64) 
 		_, err = tx.ExecContext(ctx, "INSERT INTO counter_metrics (name, delta, value) VALUES ($1, $2, $3)", name, delta, delta)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to create counter metric")
+
+			return 0, err
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to commit transaction")
 
 			return 0, err
 		}
