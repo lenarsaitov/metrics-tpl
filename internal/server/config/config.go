@@ -2,19 +2,18 @@ package config
 
 import (
 	"flag"
-	"os"
-	"strconv"
+	"github.com/caarlos0/env/v8"
 )
 
 type Config struct {
-	AddrRun         string
-	FileStoragePath string
-	DatabaseDSN     string
-	StoreInterval   int
-	Restore         bool
+	AddrRun         string `env:"ADDRESS"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
+	StoreInterval   int    `env:"STORE_INTERVAL"`
+	Restore         bool   `env:"RESTORE"`
 }
 
-func GetConfiguration() *Config {
+func GetConfiguration() (*Config, error) {
 	cfg := &Config{}
 
 	flag.StringVar(&cfg.AddrRun, "a", "localhost:8080", "address and port to run server")
@@ -25,31 +24,10 @@ func GetConfiguration() *Config {
 
 	flag.Parse()
 
-	if envAddrRun := os.Getenv("ADDRESS"); envAddrRun != "" {
-		cfg.AddrRun = envAddrRun
+	err := env.Parse(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
-		number, err := strconv.Atoi(envStoreInterval)
-		if nil == err {
-			cfg.StoreInterval = number
-		}
-	}
-
-	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		cfg.FileStoragePath = envFileStoragePath
-	}
-
-	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
-		boolean, err := strconv.ParseBool(envRestore)
-		if nil == err {
-			cfg.Restore = boolean
-		}
-	}
-
-	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
-		cfg.DatabaseDSN = envDatabaseDSN
-	}
-
-	return cfg
+	return cfg, nil
 }

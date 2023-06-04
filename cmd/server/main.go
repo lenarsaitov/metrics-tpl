@@ -13,7 +13,11 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msg("start metrics collection and alerting service web server..")
 
-	cfg := config.GetConfiguration()
+	cfg, err := config.GetConfiguration()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get configuration")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

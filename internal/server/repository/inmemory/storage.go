@@ -2,7 +2,6 @@ package inmemory
 
 import (
 	"context"
-	"fmt"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
 )
 
@@ -37,8 +36,6 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 			Value: value,
 		})
 	}
-
-	fmt.Println("\n\n\n\n\n\n", "aaaa")
 
 	return metrics, nil
 }

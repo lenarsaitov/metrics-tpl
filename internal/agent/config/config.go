@@ -2,15 +2,14 @@ package config
 
 import (
 	"flag"
+	"github.com/caarlos0/env/v8"
 	"net/url"
-	"os"
-	"strconv"
 )
 
 type Config struct {
-	RemoteAddr     string
-	ReportInterval int
-	PollInterval   int
+	RemoteAddr     string `env:"ADDRESS"`
+	ReportInterval int    `env:"REPORT_INTERVAL"`
+	PollInterval   int    `env:"POLL_INTERVAL"`
 }
 
 func GetConfiguration() (*Config, error) {
@@ -22,24 +21,9 @@ func GetConfiguration() (*Config, error) {
 
 	flag.Parse()
 
-	if envRemoteAddr := os.Getenv("ADDRESS"); envRemoteAddr != "" {
-		cfg.RemoteAddr = envRemoteAddr
-	}
-
-	if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
-		intervalSec, err := strconv.Atoi(envReportInterval)
-		if err != nil {
-			return nil, err
-		}
-		cfg.ReportInterval = intervalSec
-	}
-
-	if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
-		intervalSec, err := strconv.Atoi(envPollInterval)
-		if err != nil {
-			return nil, err
-		}
-		cfg.PollInterval = intervalSec
+	err := env.Parse(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	urlRemoteAddr, err := url.Parse(cfg.RemoteAddr)
