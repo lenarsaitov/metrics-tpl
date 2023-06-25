@@ -34,7 +34,7 @@ func GetRouters(ctx context.Context, cfg *config.Config) (*echo.Echo, error) {
 	)
 
 	useMetrics := services.NewMetricsService(storage)
-	worker.New(useMetrics, cfg.StoreInterval, cfg.FileStoragePath).Run(ctx, cfg.Restore)
+	worker.New(useMetrics, cfg.StoreInterval, cfg.FileStoragePath).DumpStorage(ctx, cfg.Restore)
 	serverController := controllers.New(cfg.DatabaseDSN, useMetrics)
 
 	e.Add(http.MethodGet, "/ping", serverController.PingDB)

@@ -38,7 +38,7 @@ func New(
 	}
 }
 
-func (r *Worker) Run(ctx context.Context, restore bool) {
+func (r *Worker) DumpStorage(ctx context.Context, restore bool) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
 	if len(r.fileStoragePath) == 0 {
