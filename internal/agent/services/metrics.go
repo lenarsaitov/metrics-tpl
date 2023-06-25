@@ -36,6 +36,7 @@ type MetricsService struct {
 	pollCount           int64
 	pollInterval        time.Duration
 	reportInterval      time.Duration
+	connectionAttempt   int
 }
 
 func NewMetricsService(
@@ -57,7 +58,7 @@ func NewMetricsService(
 	}
 }
 
-func (s *MetricsService) Poll(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) PollWithTicker(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 
@@ -76,7 +77,7 @@ func (s *MetricsService) Poll(ctx context.Context, log *zerolog.Logger) {
 	}
 }
 
-func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) ReportWithTicker(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.reportInterval)
 	defer ticker.Stop()
 
@@ -92,69 +93,74 @@ func (s *MetricsService) Report(ctx context.Context, log *zerolog.Logger) {
 			counterMetrics := s.polledMetrics.CounterMetrics
 			s.mu.Unlock()
 
+			var input []MetricOutput
+
 			for _, metric := range gaugeMetrics {
-				input := &MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType}
-				body, err := json.Marshal(input)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to marshal request body")
-
-					return
-				}
-
-				ok, err := s.send(ctx, body)
-				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to report gauge metric")
-
-					return
-				}
-
-				if !ok {
-					log.Warn().Msg("couldn't send request, try next attempt")
-					time.Sleep(time.Second)
-				}
+				input = append(input, MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType})
 			}
+
 			for _, metric := range counterMetrics {
-				input := &MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType}
-				body, err := json.Marshal(input)
-				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to marshal request body")
-
-					return
-				}
-
-				ok, err := s.send(ctx, body)
-				if err != nil {
-					log.Error().Err(err).RawJSON("body", body).Msg("failed to report counter metric")
-
-					return
-				}
-
-				if !ok {
-					log.Warn().Msg("couldn't send request, try next attempt")
-					time.Sleep(time.Second)
-				}
+				input = append(input, MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType})
 			}
 
-			log.Info().Interface("metrics", s.polledMetrics).Msg("reported metrics")
+			body, err := json.Marshal(input)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal request body")
+
+				return
+			}
+
+			err = s.reportMetrics(ctx, log, body)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to report metrics")
+
+				return
+			}
+
+			log.Info().
+				Interface("gauge_metrics", gaugeMetrics).
+				Interface("counter_metrics", counterMetrics).
+				Msg("reported metrics")
 		}
 	}
 }
 
-func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
+func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger, body []byte) error {
+	for {
+		err := s.send(ctx, body)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
+				log.Warn().Int("next_attempt_after_seconds", 2*s.connectionAttempt+1).Msg("couldn't send request, try next attempt")
+				time.Sleep(time.Duration(2*s.connectionAttempt+1) * time.Second)
+
+				s.connectionAttempt++
+
+				continue
+			}
+			log.Error().Err(err).RawJSON("request_body", body).Msg("failed to report gauge metric")
+
+			return err
+		}
+
+		return nil
+	}
+}
+
+func (s *MetricsService) send(ctx context.Context, reqBody []byte) error {
 	var buf bytes.Buffer
 
 	g := gzip.NewWriter(&buf)
-	if _, err := g.Write(body); err != nil {
-		return false, err
+	if _, err := g.Write(reqBody); err != nil {
+		return err
 	}
 
 	if err := g.Close(); err != nil {
-		return false, err
+		return err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/update/", &buf)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.remoteServerAddress+"/updates/", &buf)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	request.Close = true
@@ -163,17 +169,18 @@ func (s *MetricsService) send(ctx context.Context, body []byte) (bool, error) {
 
 	resp, err := s.client.Do(request)
 	if err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
-			return false, nil
-		}
-
-		return false, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unsuccess response, url: %s, status: %d", request.URL.String(), resp.StatusCode)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
 	}
 
-	return true, nil
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unsuccess response, url: %s, body: %s, status: %d", request.URL.String(), string(respBody), resp.StatusCode)
+	}
+
+	return nil
 }

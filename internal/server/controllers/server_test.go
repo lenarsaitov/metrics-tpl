@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/labstack/echo"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/models"
-	"github.com/lenarsaitov/metrics-tpl/internal/server/repository"
+	"github.com/lenarsaitov/metrics-tpl/internal/server/repository/inmemory"
 	"github.com/lenarsaitov/metrics-tpl/internal/server/services"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -62,8 +63,8 @@ func TestUpdatePath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/update/:metricType/:metricName/:metricValue", nil)
@@ -145,19 +146,21 @@ func TestGetMetricPath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
-			memStorageModel := repository.NewPollStorage()
+			memStorageModel := inmemory.NewPollStorage()
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
 				case models.GaugeMetricType:
-					memStorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+					err := memStorageModel.ReplaceGauge(context.Background(), test.request.metricName, rand.Float64())
+					require.Nil(t, err)
 				case models.CounterMetricType:
-					memStorageModel.AddCounter(test.request.metricName, rand.Int63())
+					_, err := memStorageModel.AddCounter(context.Background(), test.request.metricName, rand.Int63())
+					require.Nil(t, err)
 				}
 			}
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.request.method, "/value/:metricType/:metricName", nil)
 
@@ -217,8 +220,8 @@ func TestUpdateGauge(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Value: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -281,8 +284,8 @@ func TestUpdateCounter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			useMetrics := services.NewMetricsService(repository.NewPollStorage())
-			serverController := New(useMetrics)
+			useMetrics := services.NewMetricsService(inmemory.NewPollStorage())
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType, Delta: &test.request.metricValue}
 			body, err := json.Marshal(input)
@@ -372,19 +375,21 @@ func TestGetMetric(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := repository.NewPollStorage()
+			memStorageModel := inmemory.NewPollStorage()
 
 			if test.preparedMetric != nil {
 				switch test.preparedMetric.metricType {
 				case models.GaugeMetricType:
-					memStorageModel.ReplaceGauge(test.request.metricName, rand.Float64())
+					err := memStorageModel.ReplaceGauge(context.Background(), test.request.metricName, rand.Float64())
+					require.Nil(t, err)
 				case models.CounterMetricType:
-					memStorageModel.AddCounter(test.request.metricName, rand.Int63())
+					_, err := memStorageModel.AddCounter(context.Background(), test.request.metricName, rand.Int63())
+					require.Nil(t, err)
 				}
 			}
 
 			useMetrics := services.NewMetricsService(memStorageModel)
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 
 			input := &MetricInput{ID: test.request.metricName, MType: test.request.metricType}
 			body, err := json.Marshal(input)
@@ -430,17 +435,18 @@ func TestGetAllMetrics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := echo.New()
 
-			memStorageModel := repository.NewPollStorage()
-			memStorageModel.ReplaceGauge(models.GaugeMetricType, rand.Float64())
+			memStorageModel := inmemory.NewPollStorage()
+			err := memStorageModel.ReplaceGauge(context.Background(), models.GaugeMetricType, rand.Float64())
+			require.Nil(t, err)
 
 			useMetrics := services.NewMetricsService(memStorageModel)
 
-			serverController := New(useMetrics)
+			serverController := New("", useMetrics)
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(test.requestMethod, "/", nil)
 
 			ctx := e.NewContext(request, w)
-			err := serverController.GetAllMetrics(ctx)
+			err = serverController.GetAllMetrics(ctx)
 			require.Nil(t, err)
 
 			response := w.Result()

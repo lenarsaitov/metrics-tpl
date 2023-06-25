@@ -1,4 +1,4 @@
-package runner
+package worker
 
 import (
 	"context"
@@ -14,13 +14,13 @@ import (
 
 type (
 	MetricsService interface {
-		GetAll() models.Metrics
-		UpdateGaugeMetric(metricName string, gaugeValue float64)
-		UpdateCounterMetric(metricName string, counterValue int64) int64
+		GetAll(ctx context.Context) (models.Metrics, error)
+		UpdateGaugeMetric(ctx context.Context, metricName string, gaugeValue float64) error
+		UpdateCounterMetric(ctx context.Context, metricName string, counterValue int64) (int64, error)
 	}
 )
 
-type Runner struct {
+type Worker struct {
 	metricsService  MetricsService
 	fileStoragePath string
 	storeInterval   time.Duration
@@ -30,25 +30,25 @@ func New(
 	metricsService MetricsService,
 	storeInterval int,
 	fileStoragePath string,
-) *Runner {
-	return &Runner{
+) *Worker {
+	return &Worker{
 		metricsService:  metricsService,
 		storeInterval:   time.Second * time.Duration(storeInterval),
 		fileStoragePath: fileStoragePath,
 	}
 }
 
-func (r *Runner) Run(ctx context.Context, restore bool) {
+func (r *Worker) DumpStorage(ctx context.Context, restore bool) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
 	if len(r.fileStoragePath) == 0 {
-		log.Info().Msg("there is empty file storage path, stop runner")
+		log.Info().Msg("there is empty file storage path, stop worker")
 
 		return
 	}
 
 	if restore {
-		log.Info().Msg("there is restore == false, dont load saved metrics to server")
+		log.Info().Msg("there is restore == true, load saved data from file to server")
 
 		if err := r.restoreMetrics(); err != nil {
 			log.Error().Err(err).Msg("failed to restore metrics")
@@ -66,7 +66,7 @@ func (r *Runner) Run(ctx context.Context, restore bool) {
 	go r.savingMetricsAsync(ctx, &log)
 }
 
-func (r *Runner) restoreMetrics() error {
+func (r *Worker) restoreMetrics() error {
 	file, err := os.OpenFile(r.fileStoragePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
@@ -90,17 +90,23 @@ func (r *Runner) restoreMetrics() error {
 	}
 
 	for _, metric := range metrics.GaugeMetrics {
-		r.metricsService.UpdateGaugeMetric(metric.Name, metric.Value)
+		err = r.metricsService.UpdateGaugeMetric(context.Background(), metric.Name, metric.Value)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, metric := range metrics.CounterMetrics {
-		r.metricsService.UpdateCounterMetric(metric.Name, metric.Value)
+		_, err = r.metricsService.UpdateCounterMetric(context.Background(), metric.Name, metric.Value)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (r *Runner) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger) {
+func (r *Worker) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger) {
 	log := logger
 
 	ticker := time.NewTicker(r.storeInterval)
@@ -111,9 +117,16 @@ func (r *Runner) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger)
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			data, err := json.Marshal(r.metricsService.GetAll())
+			metrics, err := r.metricsService.GetAll(context.Background())
 			if err != nil {
-				log.Info().Msg("saving metrics ticker stopped by ctx")
+				log.Error().Err(err).Msg("failed to get all metrics")
+
+				return
+			}
+
+			data, err := json.Marshal(metrics)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to marshal metrics data")
 
 				return
 			}
@@ -137,12 +150,19 @@ func (r *Runner) savingMetricsAsync(ctx context.Context, logger *zerolog.Logger)
 	}
 }
 
-func (r *Runner) savingMetrics(logger *zerolog.Logger) {
+func (r *Worker) savingMetrics(logger *zerolog.Logger) {
 	log := logger
 
-	data, err := json.Marshal(r.metricsService.GetAll())
+	metrics, err := r.metricsService.GetAll(context.Background())
 	if err != nil {
-		log.Info().Msg("saving metrics ticker stopped by ctx")
+		log.Error().Err(err).Msg("failed to get all metrics")
+
+		return
+	}
+
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal metrics data")
 
 		return
 	}
