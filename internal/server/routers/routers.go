@@ -20,7 +20,7 @@ func GetRouters(ctx context.Context, cfg *config.Config) (*echo.Echo, error) {
 	var storage services.Storage
 	var err error
 	if cfg.DatabaseDSN != "" {
-		storage, err = postgres.NewPollStorage(ctx, cfg.DatabaseDSN)
+		storage, err = postgres.NewPollStorage(ctx, cfg.DatabaseDSN, cfg.DefaultDBTimeoutSec)
 		if err != nil {
 			return nil, err
 		}

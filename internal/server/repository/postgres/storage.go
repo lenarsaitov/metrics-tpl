@@ -12,13 +12,12 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-const defaultTimout = time.Second
-
 type PollStorage struct {
-	db *sql.DB
+	db            *sql.DB
+	defaultTimout time.Duration
 }
 
-func NewPollStorage(ctx context.Context, dataSourceName string) (*PollStorage, error) {
+func NewPollStorage(ctx context.Context, dataSourceName string, defaultTimoutSec int) (*PollStorage, error) {
 	db, err := sql.Open("pgx", dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgresql: %s", err)
@@ -39,11 +38,11 @@ func NewPollStorage(ctx context.Context, dataSourceName string) (*PollStorage, e
 		return nil, fmt.Errorf("failed to create gauge metrics table: %s", err)
 	}
 
-	return &PollStorage{db}, nil
+	return &PollStorage{db: db, defaultTimout: time.Duration(defaultTimoutSec) * time.Second}, nil
 }
 
 func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimout)
+	ctx, cancel := context.WithTimeout(ctx, m.defaultTimout)
 	defer cancel()
 
 	metrics := models.Metrics{
@@ -123,7 +122,7 @@ func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
 }
 
 func (m *PollStorage) GetGaugeMetric(ctx context.Context, name string) (*float64, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimout)
+	ctx, cancel := context.WithTimeout(ctx, m.defaultTimout)
 	defer cancel()
 
 	row := m.db.QueryRowContext(ctx, "SELECT value FROM gauge_metrics WHERE name = $1", name)
@@ -143,7 +142,7 @@ func (m *PollStorage) GetGaugeMetric(ctx context.Context, name string) (*float64
 }
 
 func (m *PollStorage) GetCounterMetric(ctx context.Context, name string) (*int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimout)
+	ctx, cancel := context.WithTimeout(ctx, m.defaultTimout)
 	defer cancel()
 
 	row := m.db.QueryRowContext(ctx, "SELECT value FROM counter_metrics WHERE name = $1", name)
@@ -163,7 +162,7 @@ func (m *PollStorage) GetCounterMetric(ctx context.Context, name string) (*int64
 }
 
 func (m *PollStorage) ReplaceGauge(ctx context.Context, name string, value float64) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimout)
+	ctx, cancel := context.WithTimeout(ctx, m.defaultTimout)
 	defer cancel()
 
 	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})
@@ -225,7 +224,7 @@ func (m *PollStorage) ReplaceGauge(ctx context.Context, name string, value float
 }
 
 func (m *PollStorage) AddCounter(ctx context.Context, name string, delta int64) (int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimout)
+	ctx, cancel := context.WithTimeout(ctx, m.defaultTimout)
 	defer cancel()
 
 	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})

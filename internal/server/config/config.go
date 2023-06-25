@@ -6,11 +6,12 @@ import (
 )
 
 type Config struct {
-	AddrRun         string `env:"ADDRESS"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	DatabaseDSN     string `env:"DATABASE_DSN"`
-	StoreInterval   int    `env:"STORE_INTERVAL"`
-	Restore         bool   `env:"RESTORE"`
+	AddrRun             string `env:"ADDRESS"`
+	FileStoragePath     string `env:"FILE_STORAGE_PATH"`
+	DatabaseDSN         string `env:"DATABASE_DSN"`
+	DefaultDBTimeoutSec int    `env:"DEFAULT_DB_TIMEOUT_SEC"`
+	StoreInterval       int    `env:"STORE_INTERVAL"`
+	Restore             bool   `env:"RESTORE"`
 }
 
 func GetConfiguration() (*Config, error) {
@@ -21,6 +22,7 @@ func GetConfiguration() (*Config, error) {
 	flag.StringVar(&cfg.FileStoragePath, "f", "/tmp/metrics-db.json", "path of the file where the current values are saved")
 	flag.BoolVar(&cfg.Restore, "r", true, "load previously saved values from the specified file when the server starts")
 	flag.StringVar(&cfg.DatabaseDSN, "d", "", "load previously saved values from the specified file when the server starts")
+	flag.IntVar(&cfg.DefaultDBTimeoutSec, "t", 1, "time out in seconds of query to db")
 
 	flag.Parse()
 
