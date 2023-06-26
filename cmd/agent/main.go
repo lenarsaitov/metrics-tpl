@@ -35,6 +35,7 @@ func main() {
 		cfg.RemoteAddr,
 		cfg.PollInterval,
 		cfg.ReportInterval,
+		cfg.JWTKey,
 	)
 
 	agentWorker := worker.New(service)

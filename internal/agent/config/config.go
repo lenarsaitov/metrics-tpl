@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	JWTKey         string `env:"KEY"`
 	RemoteAddr     string `env:"ADDRESS"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
@@ -15,6 +16,7 @@ type Config struct {
 func GetConfiguration() (*Config, error) {
 	cfg := &Config{}
 
+	flag.StringVar(&cfg.JWTKey, "k", "", "key for jwt")
 	flag.StringVar(&cfg.RemoteAddr, "a", "http://localhost:8080", "address and port of server")
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "flag report interval")
 	flag.IntVar(&cfg.PollInterval, "p", 2, "flag poll interval")
