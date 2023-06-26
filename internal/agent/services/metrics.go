@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +34,7 @@ type MetricsService struct {
 	mu                  *sync.Mutex
 	client              http.Client
 	remoteServerAddress string
+	jwtKey              string
 	polledMetrics       models.Metrics
 	pollCount           int64
 	pollInterval        time.Duration
@@ -44,6 +47,7 @@ func NewMetricsService(
 	remoteServerAddress string,
 	pollInterval int,
 	reportInterval int,
+	jwtKey string,
 ) *MetricsService {
 	client := http.Client{}
 
@@ -55,6 +59,7 @@ func NewMetricsService(
 		pollInterval:        time.Duration(pollInterval) * time.Second,
 		reportInterval:      time.Duration(reportInterval) * time.Second,
 		mu:                  &sync.Mutex{},
+		jwtKey:              jwtKey,
 	}
 }
 
@@ -166,6 +171,16 @@ func (s *MetricsService) send(ctx context.Context, reqBody []byte) error {
 	request.Close = true
 	request.Header.Set("Content-type", "application/json")
 	request.Header.Set("Content-Encoding", "gzip")
+
+	if s.jwtKey != "" {
+		h := sha256.New()
+		_, err = h.Write(append(reqBody, []byte(s.jwtKey)...))
+		if err != nil {
+			return err
+		}
+
+		request.Header.Set("HashSHA256", base64.StdEncoding.EncodeToString(h.Sum(nil)))
+	}
 
 	resp, err := s.client.Do(request)
 	if err != nil {

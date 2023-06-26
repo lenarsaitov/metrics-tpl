@@ -3,7 +3,9 @@ package controllers
 import (
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -40,12 +42,14 @@ type MetricInput struct {
 type Controller struct {
 	metricsService MetricsService
 	dataSourceName string
+	jwtKey         string
 }
 
-func New(dataSourceName string, metricsService MetricsService) *Controller {
+func New(metricsService MetricsService, dataSourceName string, jwtKey string) *Controller {
 	return &Controller{
-		dataSourceName: dataSourceName,
 		metricsService: metricsService,
+		dataSourceName: dataSourceName,
+		jwtKey:         jwtKey,
 	}
 }
 
@@ -136,6 +140,20 @@ func (c *Controller) Updates(ctx echo.Context) error {
 		log.Error().Err(err).Msg("failed get body from request")
 
 		return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+	}
+
+	if c.jwtKey != "" {
+		h := sha256.New()
+		_, err = h.Write(append(body, []byte(c.jwtKey)...))
+		if err != nil {
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
+
+		if base64.StdEncoding.EncodeToString(h.Sum(nil)) != ctx.Request().Header.Get("HashSHA256") {
+			log.Error().Msg("hash of body is not valid")
+
+			return ctx.String(http.StatusBadRequest, defaultBadRequestMessage)
+		}
 	}
 
 	var inputMetrics []MetricInput
