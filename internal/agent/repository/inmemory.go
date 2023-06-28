@@ -2,8 +2,10 @@ package repository
 
 import (
 	"github.com/lenarsaitov/metrics-tpl/internal/agent/models"
+	"github.com/shirou/gopsutil/mem"
 	"math/rand"
 	"runtime"
+	"sync"
 )
 
 const (
@@ -35,27 +37,62 @@ const (
 	SysMetric           = "Sys"
 	TotalAllocMetric    = "TotalAlloc"
 
-	// PollCountMetric и RandomValueMetric метрики не из runtime
+	// PollCountMetric и RandomValueMetric метрики типа counter, не из runtime
 	PollCountMetric   = "PollCount"
 	RandomValueMetric = "RandomValue"
+
+	// Метрики типа gauge из psutil
+	TotalMemory     = "TotalMemory"
+	FreeMemory      = "FreeMemory"
+	CPUutilization1 = "CPUutilization1"
 )
 
 type PollStorage struct {
+	mx        *sync.RWMutex
+	metrics   models.Metrics
 	pollCount int64
 }
 
 func NewPollStorage() *PollStorage {
-	return &PollStorage{}
+	return &PollStorage{
+		mx: new(sync.RWMutex),
+	}
 }
 
-func (m *PollStorage) GetPoll() models.Metrics {
+func (m *PollStorage) PutCommonPoll() {
 	metrics := getRuntimePoll()
+
+	m.mx.Lock()
+	defer m.mx.Unlock()
+
 	m.pollCount++
 
 	metrics.CounterMetrics = append(metrics.CounterMetrics, models.CounterMetric{Name: PollCountMetric, Value: m.pollCount})
 	metrics.GaugeMetrics = append(metrics.GaugeMetrics, models.GaugeMetric{Name: RandomValueMetric, Value: rand.Float64()})
 
-	return *metrics
+	m.metrics.CounterMetrics = append(m.metrics.CounterMetrics, metrics.CounterMetrics...)
+	m.metrics.GaugeMetrics = append(m.metrics.GaugeMetrics, metrics.GaugeMetrics...)
+}
+
+func (m *PollStorage) PutPsutilPoll() {
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return
+	}
+
+	m.mx.Lock()
+	defer m.mx.Unlock()
+
+	m.metrics.GaugeMetrics = append(m.metrics.GaugeMetrics, models.GaugeMetric{Name: TotalMemory, Value: float64(v.Total)})
+	m.metrics.GaugeMetrics = append(m.metrics.GaugeMetrics, models.GaugeMetric{Name: FreeMemory, Value: float64(v.Free)})
+	//m.metrics.GaugeMetrics = append(m.metrics.GaugeMetrics, models.GaugeMetric{Name: CPUutilization1, Value: float64(v.)})
+}
+
+func (m *PollStorage) GetPoll() models.Metrics {
+	m.mx.Lock()
+	defer m.mx.Unlock()
+
+	return m.metrics
 }
 
 func getRuntimePoll() *models.Metrics {
