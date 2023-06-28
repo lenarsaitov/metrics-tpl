@@ -9,8 +9,10 @@ import (
 
 type (
 	MetricsService interface {
-		PollWithTicker(ctx context.Context, log *zerolog.Logger)
-		ReportWithTicker(ctx context.Context, log *zerolog.Logger)
+		PutCommonPollWorker(ctx context.Context, log *zerolog.Logger)
+		PutPsutilPollWorker(ctx context.Context, log *zerolog.Logger)
+		WriteToChanWorker(ctx context.Context, log *zerolog.Logger)
+		SendWorker(ctx context.Context, log *zerolog.Logger)
 	}
 )
 
@@ -24,12 +26,20 @@ func New(metricsService MetricsService) *Worker {
 	}
 }
 
-func (r *Worker) Run(ctx context.Context) {
+func (r *Worker) Run(ctx context.Context, rateLimit int) {
 	log := logger.With().Str("request_id", uuid.New().String()).Logger()
 
-	log.Info().Msg("start poll metrics...")
-	go r.metricsService.PollWithTicker(ctx, &log)
+	log.Info().Msg("start put poll common metrics...")
+	go r.metricsService.PutCommonPollWorker(ctx, &log)
 
-	log.Info().Msg("start report metrics...")
-	r.metricsService.ReportWithTicker(ctx, &log)
+	log.Info().Msg("start put poll psutil metrics...")
+	go r.metricsService.PutPsutilPollWorker(ctx, &log)
+
+	log.Info().Msg("start report to in jobs metrics...")
+	go r.metricsService.WriteToChanWorker(ctx, &log)
+
+	log.Info().Int("count", rateLimit).Msg("start jobs with reporting metrics...")
+	for i := 0; i < rateLimit; i++ {
+		go r.metricsService.SendWorker(ctx, &log)
+	}
 }

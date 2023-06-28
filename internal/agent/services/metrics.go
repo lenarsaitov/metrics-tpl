@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +19,9 @@ import (
 )
 
 type PollStorage interface {
+	PutCommonPoll()
+	PutPsutilPoll()
+
 	GetPoll() models.Metrics
 }
 
@@ -28,11 +33,12 @@ type MetricOutput struct {
 }
 
 type MetricsService struct {
+	jobs                chan models.Metrics
 	metricPollService   PollStorage
 	mu                  *sync.Mutex
 	client              http.Client
 	remoteServerAddress string
-	polledMetrics       models.Metrics
+	jwtKey              string
 	pollCount           int64
 	pollInterval        time.Duration
 	reportInterval      time.Duration
@@ -40,25 +46,28 @@ type MetricsService struct {
 }
 
 func NewMetricsService(
+	jobs chan models.Metrics,
 	metricPollService PollStorage,
 	remoteServerAddress string,
 	pollInterval int,
 	reportInterval int,
+	jwtKey string,
 ) *MetricsService {
 	client := http.Client{}
 
 	return &MetricsService{
+		jobs:                jobs,
 		client:              client,
 		metricPollService:   metricPollService,
 		remoteServerAddress: remoteServerAddress,
-		polledMetrics:       models.Metrics{GaugeMetrics: make([]models.GaugeMetric, 0), CounterMetrics: make([]models.CounterMetric, 0)},
 		pollInterval:        time.Duration(pollInterval) * time.Second,
 		reportInterval:      time.Duration(reportInterval) * time.Second,
 		mu:                  &sync.Mutex{},
+		jwtKey:              jwtKey,
 	}
 }
 
-func (s *MetricsService) PollWithTicker(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) PutCommonPollWorker(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 
@@ -69,37 +78,58 @@ func (s *MetricsService) PollWithTicker(ctx context.Context, log *zerolog.Logger
 
 			return
 		case <-ticker.C:
-			metrics := s.metricPollService.GetPoll()
-			s.mu.Lock()
-			s.polledMetrics = metrics
-			s.mu.Unlock()
+			s.metricPollService.PutCommonPoll()
 		}
 	}
 }
 
-func (s *MetricsService) ReportWithTicker(ctx context.Context, log *zerolog.Logger) {
+func (s *MetricsService) PutPsutilPollWorker(ctx context.Context, log *zerolog.Logger) {
+	ticker := time.NewTicker(s.pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("poll ticker stopped by ctx")
+
+			return
+		case <-ticker.C:
+			s.metricPollService.PutPsutilPoll()
+		}
+	}
+}
+
+func (s *MetricsService) WriteToChanWorker(ctx context.Context, log *zerolog.Logger) {
 	ticker := time.NewTicker(s.reportInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info().Msg("report ticker stopped by ctx")
+			log.Info().Msg("write to chan worker ticker stopped by ctx")
 
 			return
 		case <-ticker.C:
-			s.mu.Lock()
-			gaugeMetrics := s.polledMetrics.GaugeMetrics
-			counterMetrics := s.polledMetrics.CounterMetrics
-			s.mu.Unlock()
+			s.jobs <- s.metricPollService.GetPoll()
+		}
+	}
+}
 
+func (s *MetricsService) SendWorker(ctx context.Context, log *zerolog.Logger) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("report ticker stopped by ctx")
+
+			return
+		case metrics := <-s.jobs:
 			var input []MetricOutput
 
-			for _, metric := range gaugeMetrics {
+			for _, metric := range metrics.GaugeMetrics {
 				input = append(input, MetricOutput{ID: metric.Name, Value: &metric.Value, MType: models.GaugeMetricType})
 			}
 
-			for _, metric := range counterMetrics {
+			for _, metric := range metrics.CounterMetrics {
 				input = append(input, MetricOutput{ID: metric.Name, Delta: &metric.Value, MType: models.CounterMetricType})
 			}
 
@@ -110,7 +140,7 @@ func (s *MetricsService) ReportWithTicker(ctx context.Context, log *zerolog.Logg
 				return
 			}
 
-			err = s.reportMetrics(ctx, log, body)
+			err = s.report(ctx, log, body)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to report metrics")
 
@@ -118,14 +148,14 @@ func (s *MetricsService) ReportWithTicker(ctx context.Context, log *zerolog.Logg
 			}
 
 			log.Info().
-				Interface("gauge_metrics", gaugeMetrics).
-				Interface("counter_metrics", counterMetrics).
+				Interface("gauge_metrics", metrics.GaugeMetrics).
+				Interface("counter_metrics", metrics.CounterMetrics).
 				Msg("reported metrics")
 		}
 	}
 }
 
-func (s *MetricsService) reportMetrics(ctx context.Context, log *zerolog.Logger, body []byte) error {
+func (s *MetricsService) report(ctx context.Context, log *zerolog.Logger, body []byte) error {
 	for {
 		err := s.send(ctx, body)
 		if err != nil {
@@ -166,6 +196,16 @@ func (s *MetricsService) send(ctx context.Context, reqBody []byte) error {
 	request.Close = true
 	request.Header.Set("Content-type", "application/json")
 	request.Header.Set("Content-Encoding", "gzip")
+
+	if s.jwtKey != "" {
+		h := sha256.New()
+		_, err = h.Write(append(reqBody, []byte(s.jwtKey)...))
+		if err != nil {
+			return err
+		}
+
+		request.Header.Set("HashSHA256", base64.StdEncoding.EncodeToString(h.Sum(nil)))
+	}
 
 	resp, err := s.client.Do(request)
 	if err != nil {

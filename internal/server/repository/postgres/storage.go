@@ -38,7 +38,7 @@ func NewPollStorage(ctx context.Context, dataSourceName string, defaultTimoutSec
 		return nil, fmt.Errorf("failed to create gauge metrics table: %s", err)
 	}
 
-	return &PollStorage{db: db, defaultTimout: time.Duration(defaultTimoutSec) * time.Second}, nil
+	return &PollStorage{db: db, defaultTimout: 5 * time.Second}, nil
 }
 
 func (m *PollStorage) GetAll(ctx context.Context) (models.Metrics, error) {
